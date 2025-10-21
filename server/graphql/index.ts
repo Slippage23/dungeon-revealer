@@ -46,6 +46,7 @@ import * as DiceRollerChatModule from "./modules/dice-roller-chat";
 import * as UserModule from "./modules/user";
 import * as NotesModule from "./modules/notes";
 import * as TokenImageModule from "./modules/token-image";
+import * as TokenDataModule from "./modules/token-data";
 import * as MapModule from "./modules/map";
 import { pipe } from "fp-ts/lib/function";
 import * as E from "fp-ts/lib/Either";
@@ -86,6 +87,7 @@ const Query = t.queryType({
     ...UserModule.queryFields,
     ...NotesModule.queryFields,
     ...TokenImageModule.queryFields,
+    ...TokenDataModule.queryFields,
     ...MapModule.queryFields,
     nodeField,
   ],
@@ -97,6 +99,7 @@ const Subscription = t.subscriptionType({
     ...DiceRollerChatModule.subscriptionFields,
     ...NotesModule.subscriptionFields,
     ...TokenImageModule.subscriptionsFields,
+    ...TokenDataModule.subscriptionFields,
     ...MapModule.subscriptionFields,
   ],
 });
@@ -107,6 +110,7 @@ const Mutation = t.mutationType({
     ...DiceRollerChatModule.mutationFields,
     ...NotesModule.mutationFields,
     ...TokenImageModule.mutationFields,
+    ...TokenDataModule.mutationFields,
     ...MapModule.mutationFields,
   ],
 });
