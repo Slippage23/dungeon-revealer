@@ -35,6 +35,22 @@
 
 ---
 
+## Documentation References
+
+For detailed architectural guidance while implementing features, refer to these specialized guides in `.github/`:
+
+| Guide                            | Purpose                                                                                                                                                   |
+| -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`copilot-instructions.md`**    | Comprehensive architecture overview, project conventions, critical patterns (fp-ts, io-ts, GraphQL), and debugging tips (450 lines)                       |
+| **`SOCKET-IO-PATTERNS.md`**      | Real-time WebSocket authentication, GraphQL Live Queries, useSubscription hooks, broadcasting patterns, testing subscriptions                             |
+| **`CANVAS-DRAWING-PATTERNS.md`** | HTML Canvas drawing utilities, text rendering, token rendering (HP bars, condition icons), Three.js texture integration, coordinate conversion            |
+| **`DATABASE-PATTERNS.md`**       | Schema migrations, query layer with io-ts decoding, business logic with fp-ts ReaderTaskEither, cursor pagination, transaction safety, query optimization |
+| **`QUICK-REFERENCE.md`**         | Fast lookup: common tasks, file paths, build commands, environment variables, debugging checklist, code snippets                                          |
+
+**Usage Pattern:** When implementing features, check this plan for progress tracking and decisions, then reference the specialized guides for implementation details and code examples.
+
+---
+
 ## 2. Current Status & Handover Notes (As of Nov 14, 2025 - Session 4)
 
 ### Session 4: Final Build Tool Resolution (Nov 14, 2025)

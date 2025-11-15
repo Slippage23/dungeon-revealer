@@ -141,6 +141,21 @@ type Query {
   ): TokenImageConnection
 
   """
+  Get token data by token ID
+  """
+  tokenData(tokenId: String!): TokenData
+
+  """
+  Get all token data for a map
+  """
+  mapTokenData(mapId: String!): [TokenData!]!
+
+  """
+  Get current combat state for a map
+  """
+  combatState(mapId: String!): CombatState!
+
+  """
   A connection of all available maps within the library
   """
   maps(
@@ -266,6 +281,76 @@ type TokenImage implements Node {
 }
 
 """
+Extended data for a token (HP, conditions, stats)
+"""
+type TokenData {
+  id: ID!
+  tokenId: String!
+  mapId: String!
+  currentHp: Int
+  maxHp: Int
+  tempHp: Int!
+  armorClass: Int
+  speed: Int
+  initiativeModifier: Int!
+  conditions: [TokenCondition!]!
+  notes: String
+  createdAt: Int!
+  updatedAt: Int!
+}
+
+"""
+Status conditions that can be applied to tokens
+"""
+enum TokenCondition {
+  BLINDED
+  CHARMED
+  DEAFENED
+  EXHAUSTED
+  FRIGHTENED
+  GRAPPLED
+  INCAPACITATED
+  INVISIBLE
+  PARALYZED
+  PETRIFIED
+  POISONED
+  PRONE
+  RESTRAINED
+  STUNNED
+  UNCONSCIOUS
+  CONCENTRATING
+  BLESSED
+  CURSED
+  HASTED
+  SLOWED
+  RAGING
+}
+
+"""
+Current combat state for a map
+"""
+type CombatState {
+  mapId: String!
+  isActive: Boolean!
+  currentRound: Int!
+  activeTokenId: String
+  initiatives: [InitiativeEntry!]!
+}
+
+"""
+Initiative tracker entry for a token
+"""
+type InitiativeEntry {
+  id: ID!
+  mapId: String!
+  tokenId: String!
+  initiativeValue: Int!
+  isActive: Boolean!
+  roundNumber: Int!
+  orderIndex: Int!
+}
+
+"""
 A connection of maps.
 """
 type MapsConnection {
@@ -359,6 +444,51 @@ type Mutation {
     input: RequestTokenImageUploadInput!
   ): RequestImageTokenUploadResult!
   tokenImageCreate(input: TokenImageCreateInput!): TokenImageCreateResult!
+
+  """
+  Create or update token data
+  """
+  upsertTokenData(input: TokenDataInput!): TokenData!
+
+  """
+  Apply damage or healing to a token
+  """
+  applyDamage(input: ApplyDamageInput!): TokenData!
+
+  """
+  Toggle a condition on/off for a token
+  """
+  toggleCondition(input: ToggleConditionInput!): TokenData!
+
+  """
+  Delete token data
+  """
+  deleteTokenData(tokenId: String!): Boolean!
+
+  """
+  Set initiative value for a token
+  """
+  setInitiative(input: SetInitiativeInput!): InitiativeEntry!
+
+  """
+  Advance to next turn in initiative order
+  """
+  advanceInitiative(mapId: String!): CombatState!
+
+  """
+  Start combat (activate first token in initiative)
+  """
+  startCombat(mapId: String!): CombatState!
+
+  """
+  End combat (clear all initiative)
+  """
+  endCombat(mapId: String!): Boolean!
+
+  """
+  Remove a token from initiative order
+  """
+  removeFromInitiative(mapId: String!, tokenId: String!): Boolean!
   mapTokenUpdateMany(input: MapTokenUpdateManyInput!): Boolean
   mapTokenRemoveMany(input: MapTokenRemoveManyInput!): Boolean
 
@@ -545,6 +675,42 @@ input TokenImageCreateInput {
   The SHA256 of the file the image got cut out from in hexadecimal form.
   """
   sourceSha256: String
+}
+
+"""
+Input for creating or updating token data
+"""
+input TokenDataInput {
+  tokenId: String!
+  mapId: String!
+  currentHp: Int
+  maxHp: Int
+  tempHp: Int
+  armorClass: Int
+  speed: Int
+  initiativeModifier: Int
+  conditions: [TokenCondition!]
+  notes: String
+}
+
+input ApplyDamageInput {
+  tokenId: String!
+
+  """
+  Positive for damage, negative for healing
+  """
+  amount: Int!
+}
+
+input ToggleConditionInput {
+  tokenId: String!
+  condition: TokenCondition!
+}
+
+input SetInitiativeInput {
+  mapId: String!
+  tokenId: String!
+  initiativeValue: Int!
 }
 
 input MapTokenUpdateManyInput {

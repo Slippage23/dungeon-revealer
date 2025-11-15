@@ -50,9 +50,9 @@ import { mapView_MapPingRenderer_MapFragment$key } from "./__generated__/mapView
 import { mapView_MapPingSubscription } from "./__generated__/mapView_MapPingSubscription.graphql";
 import { UpdateTokenContext } from "./update-token-context";
 import { IsDungeonMasterContext } from "./is-dungeon-master-context";
-import { TokenHealthBar } from "./dm-area/components/TokenHealthBar"; // [IMPORTED: Health Bar]
-import { TokenConditionIcon } from "./dm-area/components/TokenConditionIcon"; // [NEW IMPORT: Condition Icon]
-
+// [COMMENTED: Components will be created in Phase 1 frontend integration]
+// import { TokenHealthBar } from "./dm-area/components/TokenHealthBar"; // [IMPORTED: Health Bar]
+// import { TokenConditionIcon } from "./dm-area/components/TokenConditionIcon"; // [NEW IMPORT: Condition Icon]
 
 type Vector2D = [number, number];
 
@@ -161,9 +161,11 @@ const TokenListRenderer = (props: {
   map: mapView_TokenListRendererFragment$key;
 }) => {
   const map = useFragment(TokenListRendererFragment, props.map);
+  type TokenFragmentKey = mapView_TokenRendererMapTokenFragment$key;
   return (
+    // Render token list
     <group renderOrder={LayerRenderOrder.token}>
-      {map.tokens.map((token) => (
+      {(map.tokens as TokenFragmentKey[]).map((token: TokenFragmentKey) => (
         <TokenRenderer
           id={token.id}
           key={token.id}
@@ -175,34 +177,31 @@ const TokenListRenderer = (props: {
   );
 };
 
+// [COMMENTED: Fragments for Phase 1 frontend integration]
+/*
 // [NEW FRAGMENT] For condition icons, used by TokenDataFragment
 const TokenConditionIconFragment = graphql`
-  fragment TokenConditionIcon_condition on TokenCondition {
+  fragment mapView_TokenConditionIcon_condition on TokenCondition {
     id
     icon
     color
-    # Pass the fragment to the component
     ...TokenConditionIcon_condition
   }
 `;
 
-
 // [UPDATED FRAGMENT] To fetch HP and Conditions
 const TokenDataFragment = graphql`
   fragment mapView_TokenRendererMapTokenDataFragment on TokenData {
-    currentHp
-    maxHp
-    tempHp
-    # Pass the fragment to the component
-    ...TokenHealthBar_tokenData 
-    
-    # [NEW FIELD] Conditions array
+    # [UPDATED SPREAD] Must match the new naming convention
+    ...mapView_TokenHealthBar_tokenData 
     conditions {
-        id # Need ID for react key
-        ...TokenConditionIcon_condition
+        id 
+        # [UPDATED SPREAD] Must match the new naming convention
+        ...mapView_TokenConditionIcon_condition
     }
   }
 `;
+*/
 
 const TokenRendererMapTokenFragment = graphql`
   fragment mapView_TokenRendererMapTokenFragment on MapToken {
@@ -222,10 +221,10 @@ const TokenRendererMapTokenFragment = graphql`
       url
     }
     referenceId
-    # [UPDATED FIELD] Query tokenData
-    tokenData { 
-      ...mapView_TokenRendererMapTokenDataFragment
-    }
+    # [COMMENTED: tokenData field will be added in Phase 1 frontend integration]
+    # tokenData {
+    #   ...mapView_TokenRendererMapTokenDataFragment
+    # }
   }
 `;
 
@@ -725,10 +724,12 @@ const TokenRenderer = (props: {
   const color =
     isHover && isMovable ? lighten(0.1, values.color) : values.color;
   const textLabel = values.text;
-  
-  // [NEW LOGIC] Determine if overlays should render
-  const renderHealthBar = token.tokenData && token.tokenData.maxHp && token.tokenData.maxHp > 0;
-  const renderConditionIcons = token.tokenData && token.tokenData.conditions && token.tokenData.conditions.length > 0;
+
+  // [COMMENTED: tokenData logic for Phase 1 frontend integration]
+  // const renderHealthBar = token.tokenData && token.tokenData.maxHp && token.tokenData.maxHp > 0;
+  // const renderConditionIcons = token.tokenData && token.tokenData.conditions && token.tokenData.conditions.length > 0;
+  const renderHealthBar = false;
+  const renderConditionIcons = false;
 
   return (
     <>
@@ -804,33 +805,16 @@ const TokenRenderer = (props: {
           </mesh>
         )}
       </animated.group>
-      
-      {/* [NEW/UPDATED BLOCK] Render Overlays (Health Bar & Conditions) */}
-      {(renderHealthBar || renderConditionIcons) && (
-        <animated.group
-          position={animatedProps.position}
-          scale={animatedProps.circleScale}
-          renderOrder={LayerRenderOrder.overlay}
-        >
-          {/* 1. Health Bar */}
-          {renderHealthBar && (
-            <TokenHealthBar 
-              tokenData={token.tokenData}
-              initialRadius={initialRadius}
-            />
-          )}
 
-          {/* 2. Condition Icons */}
-          {renderConditionIcons && token.tokenData.conditions.map((condition, index) => (
-              <TokenConditionIcon
-                  key={condition.id}
-                  condition={condition}
-                  index={index}
-                  initialRadius={initialRadius}
-              />
-          ))}
-        </animated.group>
-      )}
+      {/* [NEW/UPDATED BLOCK] Render Overlays (Health Bar & Conditions) */}
+      {/* [COMMENTED: Components will be created in Phase 1 frontend integration] */}
+      {/* {(renderHealthBar || renderConditionIcons) && renderHealthBarAndConditions(
+        renderHealthBar,
+        renderConditionIcons,
+        token,
+        initialRadius,
+        animatedProps
+      )} */}
 
       {/* Text should not be scaled and thus must be moved to a separate group. */}
       {textLabel ? (
@@ -855,6 +839,9 @@ const TokenRenderer = (props: {
     </>
   );
 };
+
+// [TODO: Phase 1 Frontend Integration]
+// Add TokenHealthBar and TokenConditionIcon components here once created
 
 function arrayEquals(a: unknown, b: unknown) {
   return (

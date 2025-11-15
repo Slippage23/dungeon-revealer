@@ -7,7 +7,12 @@ import { pipe } from "fp-ts/lib/function";
 import * as RT from "fp-ts/lib/ReaderTask";
 import { t } from "..";
 import * as tokenDataDb from "../../token-data-db";
-import type { TokenData, InitiativeEntry, CombatState } from "../../token-types";
+import type {
+  TokenData,
+  InitiativeEntry,
+  CombatState,
+} from "../../token-types";
+import type { TokenCondition, TokenDataInput } from "../../token-types";
 
 // ============================================================================
 // Token Condition Enum
@@ -232,7 +237,7 @@ const GraphQLTokenDataInput = t.inputObjectType({
       type: t.Int,
     },
     conditions: {
-      type: t.List(t.NonNullInput(GraphQLTokenConditionEnum)),
+      type: t.ListInput(t.NonNullInput(GraphQLTokenConditionEnum)),
     },
     notes: {
       type: t.String,
@@ -357,7 +362,9 @@ export const mutationFields = [
               armorClass: args.input.armorClass ?? undefined,
               speed: args.input.speed ?? undefined,
               initiativeModifier: args.input.initiativeModifier ?? undefined,
-              conditions: args.input.conditions ?? undefined,
+              conditions:
+                (args.input.conditions as TokenCondition[] | undefined) ??
+                undefined,
               notes: args.input.notes ?? undefined,
             })
           )
@@ -400,7 +407,7 @@ export const mutationFields = [
             tokenDataDb.toggleCondition(
               context.db,
               args.input.tokenId,
-              args.input.condition
+              args.input.condition as TokenCondition
             )
           )
         ),

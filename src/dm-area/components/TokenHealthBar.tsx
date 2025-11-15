@@ -1,76 +1,116 @@
 import * as React from "react";
-import { Box, Progress, Text } from "@chakra-ui/react";
-import { TokenData } from "../../../server/token-types";
+import * as THREE from "three";
+import { useFragment } from "relay-hooks";
+import graphql from "babel-plugin-relay/macro";
+import { Text } from "@react-three/drei";
+// NOTE: This import will resolve after a successful relay-compiler run.
+// During development or in CI environments where the relay compiler hasn't run yet,
+// provide a local fallback type to prevent TypeScript from erroring on the missing module.
+type mapView_TokenHealthBar_tokenData$key = any;
+import { to } from "@react-spring/three";
 
-// Note: The TokenData interface may need to be imported correctly based on your pathing.
-// Assuming your folder structure has the necessary server/token-types.ts file.
+// [FIXED] Fragment name must now be prefixed with mapView_
+const Fragment = graphql`
+  fragment TokenHealthBar_tokenData on TokenData {
+    currentHp
+    maxHp
+    tempHp
+  }
+`;
+
 interface TokenHealthBarProps {
-  tokenData: TokenData;
-  tokenSize: number; // The size in pixels the token is rendered at on the map
+  tokenData: mapView_TokenHealthBar_tokenData$key;
+  initialRadius: number; // The 3D radius of the token
 }
 
 /**
- * Renders a small, floating health bar above a token, using token data.
+ * Renders a small 3D health bar above a token in the R3F environment.
  */
 export const TokenHealthBar: React.FC<TokenHealthBarProps> = ({
-  tokenData,
-  tokenSize = 64, 
+  tokenData: tokenDataKey,
+  initialRadius,
 }) => {
-  const { current: currentHp, max: maxHp } = tokenData.stats.hp;
+  const tokenData = useFragment(Fragment, tokenDataKey);
 
-  // Don't render if max HP is not valid or the token is dead
-  if (maxHp <= 0 || currentHp <= 0) {
-    return null; 
+  const { currentHp, maxHp, tempHp } = tokenData;
+
+  if (!maxHp || maxHp <= 0) {
+    return null;
   }
 
-  const healthPercentage = Math.max(0, (currentHp / maxHp) * 100);
-  let colorScheme = "green";
-  if (healthPercentage <= 50) colorScheme = "yellow";
-  if (healthPercentage <= 20) colorScheme = "red";
+  // Use Math.max(0, ...) to handle negative HP gracefully if data is inconsistent
+  const currentHpValue = Math.max(0, currentHp || 0);
+  const tempHpValue = Math.max(0, tempHp || 0);
 
-  // Calculate positioning to center the bar slightly above the token
-  const barWidth = tokenSize * 0.8;
-  const topOffset = tokenSize * 0.1;
+  const effectiveMaxHp = maxHp + tempHpValue;
+
+  if (effectiveMaxHp <= 0) {
+    return null;
+  }
+
+  // Color should be based on current HP vs MAX HP, not counting temp HP
+  const colorPercentage = Math.max(0, (currentHpValue / maxHp) * 100);
+  let color = new THREE.Color("green");
+  if (colorPercentage <= 50) color.set("yellow");
+  if (colorPercentage <= 20) color.set("red");
+
+  const barHeight = initialRadius * 0.15;
+  const barWidth = initialRadius * 1.8;
+  const topOffset = initialRadius * 1.1;
+
+  const position: [number, number, number] = [0, topOffset, 0];
+
+  // Calculate bar segment widths and positions
+  const mainHpBarWidth = barWidth * (currentHpValue / effectiveMaxHp);
+  const mainHpBarX = -barWidth / 2 + mainHpBarWidth / 2;
+
+  const tempHpBarWidth = barWidth * (tempHpValue / effectiveMaxHp);
+  const tempHpBarStart = -barWidth / 2 + mainHpBarWidth;
+  const tempHpBarX = tempHpBarStart + tempHpBarWidth / 2;
 
   return (
-    // The Box acts as the container and positioning element
-    <Box
-      position="absolute"
-      top={`-${topOffset}px`} 
-      left="50%"
-      transform="translateX(-50%)"
-      width={`${barWidth}px`}
-      zIndex={10} 
-      borderRadius="sm"
-      overflow="hidden"
-      boxShadow="md"
-      background="blackAlpha.800"
-      padding="1px"
-    >
-      <Progress
-        value={healthPercentage}
-        size="xs"
-        colorScheme={colorScheme}
-        borderRadius="xs"
-        // Ensure smooth animation for HP changes
-        sx={{
-          "div": { transition: "width 0.5s ease-in-out" }
-        }}
-      />
+    <group position={position} rotation={[0, 0, 0]} renderOrder={100}>
+      {/* 1. Background Bar (Total Slot) */}
+      <mesh position={[0, 0, -0.01]}>
+        <planeBufferGeometry attach="geometry" args={[barWidth, barHeight]} />
+        <meshBasicMaterial attach="material" color="black" />
+      </mesh>
+
+      {/* 2. Main HP Bar (Current HP) */}
+      {currentHpValue > 0 && (
+        <mesh position={[mainHpBarX, 0, 0]}>
+          <planeBufferGeometry
+            attach="geometry"
+            args={[mainHpBarWidth, barHeight]}
+          />
+          <meshBasicMaterial attach="material" color={color} />
+        </mesh>
+      )}
+
+      {/* 3. Temporary HP Bar (Temp HP) */}
+      {tempHpValue > 0 && (
+        <mesh position={[tempHpBarX, 0, 0]}>
+          <planeBufferGeometry
+            attach="geometry"
+            args={[tempHpBarWidth, barHeight]}
+          />
+          <meshBasicMaterial attach="material" color={"#4299E1"} />
+        </mesh>
+      )}
+
+      {/* 4. HP Text Label */}
       <Text
-        fontSize="10px"
-        fontWeight="bold"
-        textAlign="center"
+        fontSize={initialRadius * 0.25}
         color="white"
-        position="absolute"
-        top="0"
-        left="0"
-        right="0"
-        lineHeight="1.5"
-        textShadow="1px 1px 2px black"
+        anchorX="center"
+        anchorY="middle"
+        position={[0, 0, 0.01]}
+        font={"/fonts/Roboto-Bold.ttf"}
+        maxWidth={barWidth}
       >
-        {currentHp} / {maxHp}
+        {currentHpValue} / {maxHp}
+        {tempHpValue > 0 ? ` (+${tempHpValue})` : ""}
       </Text>
-    </Box>
+    </group>
   );
 };
