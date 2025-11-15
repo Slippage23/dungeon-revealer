@@ -50,6 +50,9 @@ import { mapView_MapPingRenderer_MapFragment$key } from "./__generated__/mapView
 import { mapView_MapPingSubscription } from "./__generated__/mapView_MapPingSubscription.graphql";
 import { UpdateTokenContext } from "./update-token-context";
 import { IsDungeonMasterContext } from "./is-dungeon-master-context";
+import { TokenHealthBar } from "./dm-area/components/TokenHealthBar"; // [IMPORTED: Health Bar]
+import { TokenConditionIcon } from "./dm-area/components/TokenConditionIcon"; // [NEW IMPORT: Condition Icon]
+
 
 type Vector2D = [number, number];
 
@@ -62,6 +65,7 @@ enum LayerRenderOrder {
   tokenGesture = 5,
   marker = 6,
   outline = 7,
+  overlay = 8, // [UPDATED LAYER] For health bars and icons
 }
 
 // convert image relative to three.js
@@ -171,6 +175,35 @@ const TokenListRenderer = (props: {
   );
 };
 
+// [NEW FRAGMENT] For condition icons, used by TokenDataFragment
+const TokenConditionIconFragment = graphql`
+  fragment TokenConditionIcon_condition on TokenCondition {
+    id
+    icon
+    color
+    # Pass the fragment to the component
+    ...TokenConditionIcon_condition
+  }
+`;
+
+
+// [UPDATED FRAGMENT] To fetch HP and Conditions
+const TokenDataFragment = graphql`
+  fragment mapView_TokenRendererMapTokenDataFragment on TokenData {
+    currentHp
+    maxHp
+    tempHp
+    # Pass the fragment to the component
+    ...TokenHealthBar_tokenData 
+    
+    # [NEW FIELD] Conditions array
+    conditions {
+        id # Need ID for react key
+        ...TokenConditionIcon_condition
+    }
+  }
+`;
+
 const TokenRendererMapTokenFragment = graphql`
   fragment mapView_TokenRendererMapTokenFragment on MapToken {
     id
@@ -189,6 +222,10 @@ const TokenRendererMapTokenFragment = graphql`
       url
     }
     referenceId
+    # [UPDATED FIELD] Query tokenData
+    tokenData { 
+      ...mapView_TokenRendererMapTokenDataFragment
+    }
   }
 `;
 
@@ -688,6 +725,11 @@ const TokenRenderer = (props: {
   const color =
     isHover && isMovable ? lighten(0.1, values.color) : values.color;
   const textLabel = values.text;
+  
+  // [NEW LOGIC] Determine if overlays should render
+  const renderHealthBar = token.tokenData && token.tokenData.maxHp && token.tokenData.maxHp > 0;
+  const renderConditionIcons = token.tokenData && token.tokenData.conditions && token.tokenData.conditions.length > 0;
+
   return (
     <>
       <animated.group
@@ -762,6 +804,34 @@ const TokenRenderer = (props: {
           </mesh>
         )}
       </animated.group>
+      
+      {/* [NEW/UPDATED BLOCK] Render Overlays (Health Bar & Conditions) */}
+      {(renderHealthBar || renderConditionIcons) && (
+        <animated.group
+          position={animatedProps.position}
+          scale={animatedProps.circleScale}
+          renderOrder={LayerRenderOrder.overlay}
+        >
+          {/* 1. Health Bar */}
+          {renderHealthBar && (
+            <TokenHealthBar 
+              tokenData={token.tokenData}
+              initialRadius={initialRadius}
+            />
+          )}
+
+          {/* 2. Condition Icons */}
+          {renderConditionIcons && token.tokenData.conditions.map((condition, index) => (
+              <TokenConditionIcon
+                  key={condition.id}
+                  condition={condition}
+                  index={index}
+                  initialRadius={initialRadius}
+              />
+          ))}
+        </animated.group>
+      )}
+
       {/* Text should not be scaled and thus must be moved to a separate group. */}
       {textLabel ? (
         <animated.group
