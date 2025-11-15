@@ -1053,3 +1053,192 @@ Client requests MapToken with tokenData fragment → map.ts MapToken resolver ru
 - ✅ Git committed and pushed: Hash 197c368
 
 **Ready for:** Implementation of TokenHealthBar and TokenConditionIcon components, overlay rendering, and real-time HP update testing.
+
+---
+
+## Critical: Testing Before Committing to Git
+
+**IMPORTANT:** Before pushing ANY changes to git, always perform these tests to verify the changes are working correctly. This prevents broken code from being committed to master.
+
+### Pre-Commit Testing Checklist
+
+#### 1. **Build Verification** (MANDATORY)
+
+Always run the full build:
+
+```bash
+npm run build
+```
+
+**Acceptance Criteria:**
+
+- ✅ All modules transform successfully (should see "X modules transformed" message)
+- ✅ NO errors or failures reported
+- ✅ Frontend builds complete
+- ✅ Backend TypeScript compiles successfully
+- ✅ No "error", "Error", or "ERROR" messages in output
+
+**If build fails:**
+
+- DO NOT commit changes
+- Review error messages carefully
+- Run `npm run relay-compiler` separately to check GraphQL compilation
+- Check for TypeScript errors: `cd server && npx tsc --noEmit`
+- Fix issues and re-run build before committing
+
+#### 2. **Runtime Testing** (MANDATORY for UI changes)
+
+Start the development server and test in browser:
+
+```bash
+npm run start:server:dev
+```
+
+Then open `http://localhost:3000/dm` and verify:
+
+- [ ] DM interface loads without errors
+- [ ] No errors in browser console (F12 → Console tab)
+- [ ] Map displays correctly
+- [ ] Tokens are visible on map
+- [ ] No "undefined" or "null" reference errors
+- [ ] No GraphQL query failures in Network tab
+
+**If runtime issues appear:**
+
+- DO NOT commit changes
+- Check browser console for specific error messages
+- Verify GraphQL fragments match the schema
+- Check Network tab for failed GraphQL queries
+- Fix issues and test again before committing
+
+#### 3. **Feature-Specific Testing**
+
+For Phase 1 token data changes:
+
+- [ ] Click on a token → verify no console errors
+- [ ] Check Network tab → see tokenData field in GraphQL response
+- [ ] TokenStatsPanel opens (if implemented)
+- [ ] HP values display correctly
+- [ ] Conditions appear in UI (if implemented)
+- [ ] No "maxHp is undefined" or similar errors
+
+#### 4. **Git Status Check Before Committing**
+
+Before running git commit:
+
+```bash
+git status
+```
+
+Verify:
+
+- ✅ Only intended files are changed (use `git diff` to review)
+- ✅ No accidental file deletions
+- ✅ No node_modules or build artifacts staged
+- ✅ Changes are logical and complete
+
+**Example:**
+
+```bash
+$ git status
+modified:   server/graphql/modules/map.ts
+modified:   src/map-view.tsx
+modified:   CONSOLIDATED_ENHANCEMENT_PLAN.md
+
+$ git diff server/graphql/modules/map.ts  # Review changes before commit
+```
+
+### Commit Workflow with Testing
+
+1. **Make code changes**
+2. **Test the build:** `npm run build` → must pass ✅
+3. **Test runtime:** Start server, open browser, verify UI works ✅
+4. **Review git status:** `git status` and `git diff` ✅
+5. **Commit changes:** `git add -A && git commit -m "clear message"` ✅
+6. **Push to repository:** `git push` ✅
+
+### What to Test for Each Type of Change
+
+**GraphQL Schema Changes:**
+
+- Run: `npm run write-schema && npm run relay-compiler`
+- Verify: No "Unknown field" errors
+- Test: Browser loads, queries execute without errors
+
+**Frontend Component Changes:**
+
+- Run: Build and runtime test
+- Verify: No console errors, UI renders
+- Test: User interactions work as expected
+
+**Database/Server Changes:**
+
+- Run: Backend TypeScript compilation
+- Verify: Server starts without errors
+- Test: Database operations work (if applicable)
+
+**Fragment/Query Changes:**
+
+- Run: `npm run relay-compiler`
+- Verify: No "Expected no selections" or fragment errors
+- Test: Browser loads updated queries
+
+### Example: Testing Session 6 Changes
+
+```bash
+# 1. Make changes to map.ts and map-view.tsx
+# 2. Test build
+$ npm run build
+# Should output: "2079 modules transformed"
+# Should output: "tsc --project server/tsconfig.json" success
+
+# 3. Verify no build errors (if you see any error, fix before proceeding)
+$ npm run build 2>&1 | Select-String "error" # Should be empty
+
+# 4. Start server and test in browser
+$ npm run start:server:dev
+# Open http://localhost:3000/dm in browser
+# Check console: No errors should appear
+
+# 5. Review changes
+$ git status
+$ git diff server/graphql/modules/map.ts
+
+# 6. If all looks good, commit
+$ git add -A
+$ git commit -m "feat: Add tokenData field to MapToken GraphQL type"
+
+# 7. Push to master
+$ git push
+```
+
+### Common Issues and Prevention
+
+| Issue                        | Prevention                              | Fix                                      |
+| ---------------------------- | --------------------------------------- | ---------------------------------------- |
+| Build fails after committing | Test with `npm run build` BEFORE commit | Revert commit, fix, re-commit            |
+| GraphQL fragments error      | Run `npm run relay-compiler` separately | Verify schema matches fragment selection |
+| Runtime errors in browser    | Test UI in browser BEFORE push          | Check console errors, fix code           |
+| TypeScript compilation fails | Check `cd server && npx tsc --noEmit`   | Review type errors reported              |
+| Relay type generation fails  | Verify graphql fragments are valid      | Match fragment spreads to actual types   |
+
+### When to Request Testing Before Pushing
+
+**Agent should ALWAYS test before pushing:**
+
+✅ After adding/modifying GraphQL fields
+✅ After changing database resolvers
+✅ After modifying React components
+✅ After uncommenting/enabling code
+✅ After updating Relay fragments
+✅ After making TypeScript changes
+
+**Agent should request USER to test when:**
+
+- Proposing UI/UX changes (user can see if it looks right)
+- Testing game mechanics (depends on domain knowledge)
+- Integration testing between systems
+- Performance testing under load
+- Edge case scenarios
+
+---

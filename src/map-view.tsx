@@ -42,6 +42,7 @@ import {
 import { useResetState } from "./hooks/use-reset-state";
 import { mapView_MapFragment$key } from "./__generated__/mapView_MapFragment.graphql";
 import { mapView_TokenRendererMapTokenFragment$key } from "./__generated__/mapView_TokenRendererMapTokenFragment.graphql";
+import { mapView_TokenRendererMapTokenDataFragment$key } from "./__generated__/mapView_TokenRendererMapTokenDataFragment.graphql";
 import { mapView_TokenListRendererFragment$key } from "./__generated__/mapView_TokenListRendererFragment.graphql";
 import { mapView_MapViewRendererFragment$key } from "./__generated__/mapView_MapViewRendererFragment.graphql";
 import { mapView_MapRendererFragment$key } from "./__generated__/mapView_MapRendererFragment.graphql";
@@ -161,11 +162,10 @@ const TokenListRenderer = (props: {
   map: mapView_TokenListRendererFragment$key;
 }) => {
   const map = useFragment(TokenListRendererFragment, props.map);
-  type TokenFragmentKey = mapView_TokenRendererMapTokenFragment$key;
   return (
     // Render token list
     <group renderOrder={LayerRenderOrder.token}>
-      {(map.tokens as TokenFragmentKey[]).map((token: TokenFragmentKey) => (
+      {map.tokens?.map((token) => (
         <TokenRenderer
           id={token.id}
           key={token.id}
@@ -222,12 +222,26 @@ const TokenRendererMapTokenFragment = graphql`
   }
 `;
 
+// Type definition for TokenData fragment result
+type TokenDataType = {
+  readonly id: string;
+  readonly tokenId: string;
+  readonly currentHp?: number | null;
+  readonly maxHp?: number | null;
+  readonly tempHp: number;
+  readonly armorClass?: number | null;
+  readonly conditions?: readonly any[] | null;
+};
+
 const TokenRenderer = (props: {
   id: string;
   token: mapView_TokenRendererMapTokenFragment$key;
   columnWidth: number | null;
 }) => {
   const token = useFragment(TokenRendererMapTokenFragment, props.token);
+  const tokenData = token.tokenData
+    ? (useFragment(TokenDataFragment, token.tokenData) as TokenDataType)
+    : null;
   const sharedMapState = React.useContext(SharedMapState);
   const updateToken = React.useContext(UpdateTokenContext);
   const pendingChangesRef = React.useRef<TokenPartialChanges>({});
@@ -720,12 +734,9 @@ const TokenRenderer = (props: {
   const textLabel = values.text;
 
   // [RE-ENABLED: tokenData logic for Phase 1 frontend integration]
-  const renderHealthBar =
-    token.tokenData && token.tokenData.maxHp && token.tokenData.maxHp > 0;
+  const renderHealthBar = tokenData && tokenData.maxHp && tokenData.maxHp > 0;
   const renderConditionIcons =
-    token.tokenData &&
-    token.tokenData.conditions &&
-    token.tokenData.conditions.length > 0;
+    tokenData && tokenData.conditions && tokenData.conditions.length > 0;
 
   return (
     <>
