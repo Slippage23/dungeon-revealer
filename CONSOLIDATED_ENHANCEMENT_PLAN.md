@@ -854,3 +854,202 @@ When continuing, reference the new guides:
 
 - ✅ **All systems operational**
 - ✅ **Ready for next Phase 1 implementation sprint**
+
+---
+
+## Session 6: GraphQL Schema Extension & Phase 1 Enablement (Nov 15, 2025 - Current)
+
+### Objective
+
+Re-enable Phase 1 features by extending the GraphQL schema to expose `tokenData` on the `MapToken` type, allowing the frontend to query and render HP bars and condition icons.
+
+### Work Completed
+
+#### 1. GraphQL Schema Extension ✅
+
+**Modified:** `server/graphql/modules/map.ts`
+
+- Added import for `GraphQLTokenDataType` and `tokenDataDb`
+- Extended `MapToken` type with new `tokenData` field
+- Implemented resolver that fetches TokenData for each token:
+  ```typescript
+  t.field({
+    name: "tokenData",
+    type: GraphQLTokenDataType,
+    description: "Extended data for this token (HP, conditions, etc.)",
+    resolve: (source, _, context) =>
+      RT.run(
+        RT.fromTask(async () => {
+          const data = await tokenDataDb.getTokenData(context.db, source.id);
+          return data ?? null;
+        }),
+        context
+      ),
+  });
+  ```
+
+**Modified:** `server/graphql/modules/token-data.ts`
+
+- Exported `GraphQLTokenDataType` for use in other modules (previously internal)
+- Now available for import in map.ts and other resolvers
+
+**Result:** `npm run write-schema` regenerated `type-definitions.graphql` with MapToken.tokenData field
+
+#### 2. Frontend GraphQL Fragments Updated ✅
+
+**Modified:** `src/map-view.tsx`
+
+- Uncommented and re-enabled `TokenConditionIconFragment` (simplified to just id and conditions array)
+- Uncommented and re-enabled `TokenDataFragment` querying all necessary fields
+- Updated `MapToken` fragment to include `tokenData` field with nested fragment spread
+- Fixed enum field issue: `conditions` is an enum array, not an object type
+
+**Result:** Relay compiler successfully regenerated types without errors
+
+#### 3. Frontend Rendering Logic Re-enabled ✅
+
+**Modified:** `src/map-view.tsx`
+
+- Re-enabled `renderHealthBar` check
+- Re-enabled `renderConditionIcons` check
+- These checks now properly read from the GraphQL query results
+
+#### 4. Relay Type Regeneration ✅
+
+**Executed:** `npm run write-schema && npm run relay-compiler`
+
+**New Files Created:**
+
+- `mapView_TokenRendererMapTokenDataFragment.graphql.ts` (new)
+- `mapView_TokenConditionIcon_condition.graphql.ts` (new)
+
+**Files Updated:**
+
+- `mapView_TokenRendererMapTokenFragment.graphql.ts` (now includes tokenData)
+- `dmArea_MapQuery.graphql.ts` (updated with new fragment spreads)
+- `playerArea_PlayerMap_ActiveMapQuery.graphql.ts`
+
+#### 5. Build Verification ✅
+
+**Result:** Full build successful with 0 errors
+
+Frontend: 2079 modules transformed
+Relay compiler: 97 files unchanged (all types valid)
+Backend: TypeScript compilation successful
+Build artifacts: 9.72 KB - 927.56 KB
+
+#### 6. Git Commit & Push ✅
+
+**Commit:** `feat: Add tokenData field to MapToken GraphQL type`
+
+- Hash: `197c368`
+- Changes: 4 files, 824 insertions, 802 deletions
+
+### Current State
+
+**Schema:** ✅ READY
+
+- MapToken exposes `tokenData` field with HP, conditions, armor class, speed
+- All GraphQL queries properly typed and validated
+- Backend resolver fetches TokenData asynchronously from database
+
+**Frontend Fragments:** ✅ READY
+
+- `mapView_TokenRendererMapTokenFragment` includes tokenData
+- `mapView_TokenRendererMapTokenDataFragment` queries all necessary fields
+- Relay compiler validated all fragment spreads
+
+**Rendering Logic:** ✅ RE-ENABLED
+
+- `renderHealthBar` flag now based on actual tokenData presence
+- `renderConditionIcons` flag now based on actual conditions from database
+- TokenRenderer component ready to handle token stats display
+
+**Build:** ✅ PASSING
+
+- All 2079 modules build successfully
+- No TypeScript errors in backend
+- All Relay types properly generated
+
+### Next Steps & Implementation Roadmap
+
+**Immediate Next Steps:**
+
+1. **Create TokenHealthBar Component** (if not already created)
+
+   - Render above token in map view
+   - Display HP as visual bar (green for health, red for damage)
+   - Reference: `.github/CANVAS-DRAWING-PATTERNS.md`
+
+2. **Create TokenConditionIcon Component** (redesigned)
+
+   - Display condition badges on tokens
+   - Use enum values from `tokenData.conditions`
+   - Reference: `.github/CANVAS-DRAWING-PATTERNS.md`
+
+3. **Uncomment Overlay Rendering** (lines 800-815 in map-view.tsx)
+
+   - Currently commented: `renderHealthBarAndConditions()` helper function
+   - This function needs to render the health bar and condition icons components
+
+4. **Test Real-time HP Updates**
+
+   - Start server: `npm run start:server:dev`
+   - Open DM interface
+   - Click on token → open TokenStatsPanel
+   - Modify HP value → verify HP bar updates in real-time on map
+   - Reference: `.github/SOCKET-IO-PATTERNS.md` for live query subscription validation
+
+5. **Verify GraphQL Subscription & Live Query Invalidation**
+   - After HP mutation via TokenStatsPanel, verify `liveQueryStore.invalidate()` fires
+   - Confirm all connected clients receive updated token data via @live directive
+   - Check browser console for GraphQL subscription messages
+
+### Technical Details
+
+**GraphQL Field Resolution Flow:**
+
+Client requests MapToken with tokenData fragment → map.ts MapToken resolver runs → For each token, calls tokenDataDb.getTokenData(db, tokenId) → Database returns TokenData row (or null if no data) → Relay client receives tokenData object → Components access token.tokenData.maxHp, token.tokenData.conditions
+
+**TypeScript Type Safety:**
+
+- `mapView_TokenRendererMapTokenFragment` now includes optional `tokenData?`
+- `TokenDataFragment` provides strongly-typed access to HP, conditions, AC, speed
+- All types validated by Relay compiler before frontend build
+
+**Enum Handling:**
+
+- `TokenCondition` is an enum (not an object type) in GraphQL
+- `token.tokenData.conditions` is an array of enum values
+- No nested field selection possible on conditions (it's scalar)
+
+### Debugging Checklist (for next session)
+
+- [ ] Verify token_data table exists
+- [ ] Verify sample token has data
+- [ ] Check DM interface loads without errors
+- [ ] Inspect Network tab: Verify tokenData appears in GraphQL response
+- [ ] Check Console: No undefined property errors on token.tokenData
+- [ ] Verify HP bar renders when token has maxHp > 0
+- [ ] Test HP mutation updates conditions and conditions array properly
+
+### Files Modified This Session
+
+- ✅ `server/graphql/modules/map.ts` (added tokenData field to MapToken)
+- ✅ `server/graphql/modules/token-data.ts` (exported GraphQLTokenDataType)
+- ✅ `src/map-view.tsx` (uncommented fragments, re-enabled rendering logic)
+- ✅ `type-definitions.graphql` (auto-generated schema update)
+- ✅ Relay generated files: 2 new, 3 updated
+
+### Session 6 Summary
+
+**Phase 1 Progress:**
+
+- ✅ GraphQL schema extended: MapToken now exposes tokenData field
+- ✅ Backend resolver implemented: Async fetching of TokenData for each token
+- ✅ Frontend fragments uncommented: Ready to query HP, conditions, AC, speed
+- ✅ Rendering logic re-enabled: renderHealthBar and renderConditionIcons flags functional
+- ✅ Full build successful: 2079 modules, 0 errors
+- ✅ Git committed and pushed: Hash 197c368
+
+**Ready for:** Implementation of TokenHealthBar and TokenConditionIcon components, overlay rendering, and real-time HP update testing.
