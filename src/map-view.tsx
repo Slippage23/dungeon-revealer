@@ -177,31 +177,26 @@ const TokenListRenderer = (props: {
   );
 };
 
-// [COMMENTED: Fragments for Phase 1 frontend integration]
-/*
 // [NEW FRAGMENT] For condition icons, used by TokenDataFragment
 const TokenConditionIconFragment = graphql`
-  fragment mapView_TokenConditionIcon_condition on TokenCondition {
+  fragment mapView_TokenConditionIcon_condition on TokenData {
     id
-    icon
-    color
-    ...TokenConditionIcon_condition
+    conditions
   }
 `;
 
 // [UPDATED FRAGMENT] To fetch HP and Conditions
 const TokenDataFragment = graphql`
   fragment mapView_TokenRendererMapTokenDataFragment on TokenData {
-    # [UPDATED SPREAD] Must match the new naming convention
-    ...mapView_TokenHealthBar_tokenData 
-    conditions {
-        id 
-        # [UPDATED SPREAD] Must match the new naming convention
-        ...mapView_TokenConditionIcon_condition
-    }
+    id
+    tokenId
+    currentHp
+    maxHp
+    tempHp
+    armorClass
+    conditions
   }
 `;
-*/
 
 const TokenRendererMapTokenFragment = graphql`
   fragment mapView_TokenRendererMapTokenFragment on MapToken {
@@ -221,10 +216,9 @@ const TokenRendererMapTokenFragment = graphql`
       url
     }
     referenceId
-    # [COMMENTED: tokenData field will be added in Phase 1 frontend integration]
-    # tokenData {
-    #   ...mapView_TokenRendererMapTokenDataFragment
-    # }
+    tokenData {
+      ...mapView_TokenRendererMapTokenDataFragment
+    }
   }
 `;
 
@@ -725,11 +719,13 @@ const TokenRenderer = (props: {
     isHover && isMovable ? lighten(0.1, values.color) : values.color;
   const textLabel = values.text;
 
-  // [COMMENTED: tokenData logic for Phase 1 frontend integration]
-  // const renderHealthBar = token.tokenData && token.tokenData.maxHp && token.tokenData.maxHp > 0;
-  // const renderConditionIcons = token.tokenData && token.tokenData.conditions && token.tokenData.conditions.length > 0;
-  const renderHealthBar = false;
-  const renderConditionIcons = false;
+  // [RE-ENABLED: tokenData logic for Phase 1 frontend integration]
+  const renderHealthBar =
+    token.tokenData && token.tokenData.maxHp && token.tokenData.maxHp > 0;
+  const renderConditionIcons =
+    token.tokenData &&
+    token.tokenData.conditions &&
+    token.tokenData.conditions.length > 0;
 
   return (
     <>

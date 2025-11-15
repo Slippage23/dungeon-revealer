@@ -12,6 +12,8 @@ import { applyDecoder } from "../../apply-decoder";
 import { decodeImageId, GraphQLTokenImageType } from "./token-image";
 import { getTokenImageById } from "../../token-image-lib";
 import { randomUUID } from "crypto";
+import * as tokenDataDb from "../../token-data-db";
+import { GraphQLTokenDataType } from "./token-data";
 
 const sequenceRT = sequenceT(RT.readerTask);
 
@@ -500,6 +502,19 @@ const GraphQLMapTokenType = t.objectType<MapTokenEntity>({
       name: "referenceId",
       type: t.ID,
       resolve: (source) => source.reference?.id ?? null,
+    }),
+    t.field({
+      name: "tokenData",
+      type: GraphQLTokenDataType,
+      description: "Extended data for this token (HP, conditions, etc.)",
+      resolve: (source, _, context) =>
+        RT.run(
+          RT.fromTask(async () => {
+            const data = await tokenDataDb.getTokenData(context.db, source.id);
+            return data ?? null;
+          }),
+          context
+        ),
     }),
   ],
 });

@@ -425,6 +425,11 @@ type MapToken {
   isLocked: Boolean!
   tokenImage: TokenImage
   referenceId: ID
+
+  """
+  Extended data for this token (HP, conditions, etc.)
+  """
+  tokenData: TokenData
 }
 
 type Mutation {
