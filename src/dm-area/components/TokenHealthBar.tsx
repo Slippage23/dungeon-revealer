@@ -2,12 +2,10 @@ import * as React from "react";
 import * as THREE from "three";
 import { useFragment } from "relay-hooks";
 import graphql from "babel-plugin-relay/macro";
-import { Text } from "@react-three/drei";
 // NOTE: This import will resolve after a successful relay-compiler run.
 // During development or in CI environments where the relay compiler hasn't run yet,
 // provide a local fallback type to prevent TypeScript from erroring on the missing module.
 type mapView_TokenHealthBar_tokenData$key = any;
-import { to } from "@react-spring/three";
 
 // [FIXED] Fragment name must now be prefixed with mapView_
 const Fragment = graphql`
@@ -98,19 +96,8 @@ export const TokenHealthBar: React.FC<TokenHealthBarProps> = ({
         </mesh>
       )}
 
-      {/* 4. HP Text Label */}
-      <Text
-        fontSize={initialRadius * 0.25}
-        color="white"
-        anchorX="center"
-        anchorY="middle"
-        position={[0, 0, 0.01]}
-        font={"/fonts/Roboto-Bold.ttf"}
-        maxWidth={barWidth}
-      >
-        {currentHpValue} / {maxHp}
-        {tempHpValue > 0 ? ` (+${tempHpValue})` : ""}
-      </Text>
+      {/* Note: HP text label rendering removed to avoid @react-three/drei dependency */}
+      {/* Text labels can be added via canvas-based rendering in future if needed */}
     </group>
   );
 };

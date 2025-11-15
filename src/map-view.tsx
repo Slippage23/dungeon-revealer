@@ -52,8 +52,8 @@ import { mapView_MapPingSubscription } from "./__generated__/mapView_MapPingSubs
 import { UpdateTokenContext } from "./update-token-context";
 import { IsDungeonMasterContext } from "./is-dungeon-master-context";
 // [COMMENTED: Components will be created in Phase 1 frontend integration]
-// import { TokenHealthBar } from "./dm-area/components/TokenHealthBar"; // [IMPORTED: Health Bar]
-// import { TokenConditionIcon } from "./dm-area/components/TokenConditionIcon"; // [NEW IMPORT: Condition Icon]
+import { TokenHealthBar } from "./dm-area/components/TokenHealthBar"; // [IMPORTED: Health Bar]
+import { TokenConditionIcon } from "./dm-area/components/TokenConditionIcon"; // [NEW IMPORT: Condition Icon]
 
 type Vector2D = [number, number];
 
@@ -814,14 +814,17 @@ const TokenRenderer = (props: {
       </animated.group>
 
       {/* [NEW/UPDATED BLOCK] Render Overlays (Health Bar & Conditions) */}
-      {/* [COMMENTED: Components will be created in Phase 1 frontend integration] */}
-      {/* {(renderHealthBar || renderConditionIcons) && renderHealthBarAndConditions(
-        renderHealthBar,
-        renderConditionIcons,
-        token,
-        initialRadius,
-        animatedProps
-      )} */}
+      {renderHealthBar && tokenData ? (
+        <TokenHealthBar tokenData={tokenData} initialRadius={initialRadius} />
+      ) : null}
+
+      {renderConditionIcons && tokenData ? (
+        <TokenConditionIcon
+          tokenData={tokenData}
+          initialRadius={initialRadius}
+          healthBarPresent={!!renderHealthBar}
+        />
+      ) : null}
 
       {/* Text should not be scaled and thus must be moved to a separate group. */}
       {textLabel ? (
@@ -846,9 +849,6 @@ const TokenRenderer = (props: {
     </>
   );
 };
-
-// [TODO: Phase 1 Frontend Integration]
-// Add TokenHealthBar and TokenConditionIcon components here once created
 
 function arrayEquals(a: unknown, b: unknown) {
   return (
