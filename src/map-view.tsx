@@ -29,7 +29,7 @@ import { MapGridEntity, MapTokenEntity } from "./map-typings";
 import { useIsKeyPressed } from "./hooks/use-is-key-pressed";
 import { TextureLoader } from "three";
 import { ReactEventHandlers } from "react-use-gesture/dist/types";
-import { useFragment, useSubscription } from "relay-hooks";
+import { useFragment, useSubscription, useMutation } from "relay-hooks";
 import { buttonGroup, useControls, useCreateStore, LevaInputs } from "leva";
 import { levaPluginNoteReference } from "./leva-plugin/leva-plugin-note-reference";
 import { levaPluginTokenImage } from "./leva-plugin/leva-plugin-token-image";
@@ -51,6 +51,7 @@ import { mapView_MapPingRenderer_MapFragment$key } from "./__generated__/mapView
 import { mapView_MapPingSubscription } from "./__generated__/mapView_MapPingSubscription.graphql";
 import { UpdateTokenContext } from "./update-token-context";
 import { IsDungeonMasterContext } from "./is-dungeon-master-context";
+import { upsertTokenDataMutation } from "./token-mutations";
 // [COMMENTED: Components will be created in Phase 1 frontend integration]
 import { TokenHealthBar } from "./dm-area/components/TokenHealthBar"; // [IMPORTED: Health Bar]
 import { TokenConditionIcon } from "./dm-area/components/TokenConditionIcon"; // [NEW IMPORT: Condition Icon]
@@ -190,6 +191,7 @@ const TokenDataFragment = graphql`
   fragment mapView_TokenRendererMapTokenDataFragment on TokenData {
     id
     tokenId
+    mapId
     currentHp
     maxHp
     tempHp
@@ -226,6 +228,7 @@ const TokenRendererMapTokenFragment = graphql`
 type TokenDataType = {
   readonly id: string;
   readonly tokenId: string;
+  readonly mapId: string;
   readonly currentHp?: number | null;
   readonly maxHp?: number | null;
   readonly tempHp: number;
@@ -244,6 +247,7 @@ const TokenRenderer = (props: {
     : null;
   const sharedMapState = React.useContext(SharedMapState);
   const updateToken = React.useContext(UpdateTokenContext);
+  const [mutate] = useMutation(upsertTokenDataMutation);
   const pendingChangesRef = React.useRef<TokenPartialChanges>({});
   const enqueueSave = useStaticRef(() =>
     debounce(() => {
@@ -482,6 +486,165 @@ const TokenRenderer = (props: {
         },
         transient: false,
       }),
+      // Combat Stats Section
+      "---combatStats": buttonGroup({}),
+      currentHp: {
+        type: LevaInputs.NUMBER,
+        label: "Current HP",
+        value: tokenData?.currentHp ?? 0,
+        step: 1,
+        min: 0,
+        onChange: (value: number, _, { initial, fromPanel }) => {
+          if (initial || !fromPanel) {
+            return;
+          }
+        },
+        onEditEnd: (value: number) => {
+          if (tokenData) {
+            mutate({
+              variables: {
+                input: {
+                  tokenId: tokenData.tokenId,
+                  mapId: tokenData.mapId,
+                  currentHp: value,
+                  maxHp: tokenData.maxHp,
+                  tempHp: tokenData.tempHp,
+                  armorClass: tokenData.armorClass,
+                },
+              },
+            });
+          }
+        },
+      },
+      maxHp: {
+        type: LevaInputs.NUMBER,
+        label: "Max HP",
+        value: tokenData?.maxHp ?? 0,
+        step: 1,
+        min: 1,
+        onChange: (value: number, _, { initial, fromPanel }) => {
+          if (initial || !fromPanel) {
+            return;
+          }
+        },
+        onEditEnd: (value: number) => {
+          if (tokenData) {
+            mutate({
+              variables: {
+                input: {
+                  tokenId: tokenData.tokenId,
+                  mapId: tokenData.mapId,
+                  currentHp: tokenData.currentHp,
+                  maxHp: value,
+                  tempHp: tokenData.tempHp,
+                  armorClass: tokenData.armorClass,
+                },
+              },
+            });
+          }
+        },
+      },
+      tempHp: {
+        type: LevaInputs.NUMBER,
+        label: "Temp HP",
+        value: tokenData?.tempHp ?? 0,
+        step: 1,
+        min: 0,
+        onChange: (value: number, _, { initial, fromPanel }) => {
+          if (initial || !fromPanel) {
+            return;
+          }
+        },
+        onEditEnd: (value: number) => {
+          if (tokenData) {
+            mutate({
+              variables: {
+                input: {
+                  tokenId: tokenData.tokenId,
+                  mapId: tokenData.mapId,
+                  currentHp: tokenData.currentHp,
+                  maxHp: tokenData.maxHp,
+                  tempHp: value,
+                  armorClass: tokenData.armorClass,
+                },
+              },
+            });
+          }
+        },
+      },
+      armorClass: {
+        type: LevaInputs.NUMBER,
+        label: "AC",
+        value: tokenData?.armorClass ?? 10,
+        step: 1,
+        min: 1,
+        onChange: (value: number, _, { initial, fromPanel }) => {
+          if (initial || !fromPanel) {
+            return;
+          }
+        },
+        onEditEnd: (value: number) => {
+          if (tokenData) {
+            mutate({
+              variables: {
+                input: {
+                  tokenId: tokenData.tokenId,
+                  mapId: tokenData.mapId,
+                  currentHp: tokenData.currentHp,
+                  maxHp: tokenData.maxHp,
+                  tempHp: tokenData.tempHp,
+                  armorClass: value,
+                },
+              },
+            });
+          }
+        },
+      },
+      condition: {
+        type: LevaInputs.SELECT,
+        label: "Condition",
+        options: [
+          "None",
+          "blinded",
+          "charmed",
+          "deafened",
+          "exhausted",
+          "frightened",
+          "grappled",
+          "incapacitated",
+          "invisible",
+          "paralyzed",
+          "petrified",
+          "poisoned",
+          "prone",
+          "restrained",
+          "stunned",
+          "unconscious",
+        ],
+        value: tokenData?.conditions?.[0] ?? "None",
+        onChange: (condition: string, _, { initial, fromPanel }) => {
+          if (initial || !fromPanel) {
+            return;
+          }
+        },
+        onEditEnd: (condition: string) => {
+          if (tokenData) {
+            mutate({
+              variables: {
+                input: {
+                  tokenId: tokenData.tokenId,
+                  mapId: tokenData.mapId,
+                  currentHp: tokenData.currentHp,
+                  maxHp: tokenData.maxHp,
+                  tempHp: tokenData.tempHp,
+                  armorClass: tokenData.armorClass,
+                  conditions: condition === "None" ? [] : [condition],
+                },
+              },
+            });
+          }
+        },
+      },
     }),
     { store }
   );
