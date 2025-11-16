@@ -507,14 +507,27 @@ const GraphQLMapTokenType = t.objectType<MapTokenEntity>({
       name: "tokenData",
       type: GraphQLTokenDataType,
       description: "Extended data for this token (HP, conditions, etc.)",
-      resolve: (source, _, context) =>
-        RT.run(
+      resolve: (source, _, context) => {
+        console.log("[GraphQL MapToken] tokenData resolver called:", {
+          mapTokenId: source.id,
+          mapTokenLabel: source.label,
+        });
+        return RT.run(
           RT.fromTask(async () => {
+            console.log(
+              "[GraphQL MapToken] getTokenData called with tokenId:",
+              source.id
+            );
             const data = await tokenDataDb.getTokenData(context.db, source.id);
+            console.log(
+              "[GraphQL MapToken] getTokenData returned:",
+              data ? { id: data.id, tokenId: data.tokenId } : null
+            );
             return data ?? null;
           }),
           context
-        ),
+        );
+      },
     }),
   ],
 });

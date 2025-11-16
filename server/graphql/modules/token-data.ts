@@ -61,33 +61,57 @@ const GraphQLTokenDataType = t.objectType<TokenData>({
     }),
     t.field({
       name: "tokenId",
-      type: t.NonNull(t.String),
+      type: t.String, // CHANGED: Made nullable since tokenData itself can be null
       resolve: (record) => record.tokenId,
     }),
     t.field({
       name: "mapId",
-      type: t.NonNull(t.String),
+      type: t.String, // CHANGED: Made nullable since tokenData itself can be null
       resolve: (record) => record.mapId,
     }),
     t.field({
       name: "currentHp",
       type: t.Int,
-      resolve: (record) => record.currentHp,
+      resolve: (record) => {
+        console.log("[GraphQL] currentHp resolver:", {
+          value: record.currentHp,
+          type: typeof record.currentHp,
+        });
+        return record.currentHp;
+      },
     }),
     t.field({
       name: "maxHp",
       type: t.Int,
-      resolve: (record) => record.maxHp,
+      resolve: (record) => {
+        console.log("[GraphQL] maxHp resolver:", {
+          value: record.maxHp,
+          type: typeof record.maxHp,
+        });
+        return record.maxHp;
+      },
     }),
     t.field({
       name: "tempHp",
       type: t.NonNull(t.Int),
-      resolve: (record) => record.tempHp,
+      resolve: (record) => {
+        console.log("[GraphQL] tempHp resolver:", {
+          value: record.tempHp,
+          type: typeof record.tempHp,
+        });
+        return record.tempHp;
+      },
     }),
     t.field({
       name: "armorClass",
       type: t.Int,
-      resolve: (record) => record.armorClass,
+      resolve: (record) => {
+        console.log("[GraphQL] armorClass resolver:", {
+          value: record.armorClass,
+          type: typeof record.armorClass,
+        });
+        return record.armorClass;
+      },
     }),
     t.field({
       name: "speed",
@@ -102,12 +126,30 @@ const GraphQLTokenDataType = t.objectType<TokenData>({
     t.field({
       name: "conditions",
       type: t.NonNull(t.List(t.NonNull(GraphQLTokenConditionEnum))),
-      resolve: (record) => record.conditions,
+      resolve: (record) => {
+        console.log("[GraphQL] conditions resolver:", {
+          value: record.conditions,
+          type: typeof record.conditions,
+          isArray: Array.isArray(record.conditions),
+          length: Array.isArray(record.conditions)
+            ? record.conditions.length
+            : "N/A",
+        });
+        const result = record.conditions || [];
+        console.log("[GraphQL] conditions resolver returning:", result);
+        return result;
+      },
     }),
     t.field({
       name: "notes",
       type: t.String,
-      resolve: (record) => record.notes,
+      resolve: (record) => {
+        console.log("[GraphQL] notes resolver:", {
+          value: record.notes,
+          type: typeof record.notes,
+        });
+        return record.notes;
+      },
     }),
     t.field({
       name: "createdAt",
@@ -297,13 +339,19 @@ export const queryFields = [
     args: {
       tokenId: t.arg(t.NonNullInput(t.String)),
     },
-    resolve: (_, args, context) =>
-      RT.run(
+    resolve: (_, args, context) => {
+      console.log("[GraphQL Query] tokenData requested:", {
+        tokenId: args.tokenId,
+      });
+      const result = RT.run(
         pipe(
           RT.fromTask(() => tokenDataDb.getTokenData(context.db, args.tokenId))
         ),
         context
-      ),
+      );
+      console.log("[GraphQL Query] tokenData result:", result);
+      return result;
+    },
   }),
   t.field({
     name: "mapTokenData",
@@ -312,13 +360,22 @@ export const queryFields = [
     args: {
       mapId: t.arg(t.NonNullInput(t.String)),
     },
-    resolve: (_, args, context) =>
-      RT.run(
+    resolve: (_, args, context) => {
+      console.log("[GraphQL Query] mapTokenData requested:", {
+        mapId: args.mapId,
+      });
+      const result = RT.run(
         pipe(
           RT.fromTask(() => tokenDataDb.getMapTokenData(context.db, args.mapId))
         ),
         context
-      ),
+      );
+      console.log(
+        "[GraphQL Query] mapTokenData result count:",
+        Array.isArray(result) ? result.length : "not an array"
+      );
+      return result;
+    },
   }),
   t.field({
     name: "combatState",
@@ -355,8 +412,16 @@ export const mutationFields = [
     args: {
       input: t.arg(t.NonNullInput(GraphQLTokenDataInput)),
     },
-    resolve: (_, args, context) =>
-      RT.run(
+    resolve: (_, args, context) => {
+      console.log("[GraphQL upsertTokenData] Called with input:", {
+        tokenId: args.input.tokenId,
+        mapId: args.input.mapId,
+        currentHp: args.input.currentHp,
+        maxHp: args.input.maxHp,
+        tempHp: args.input.tempHp,
+        armorClass: args.input.armorClass,
+      });
+      return RT.run(
         pipe(
           RT.fromTask(() =>
             tokenDataDb.upsertTokenData(context.db, {
@@ -376,7 +441,8 @@ export const mutationFields = [
           )
         ),
         context
-      ),
+      );
+    },
   }),
   t.field({
     name: "applyDamage",

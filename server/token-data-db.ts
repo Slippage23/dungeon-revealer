@@ -16,21 +16,66 @@ import {
 /**
  * Convert database row to TokenData object
  */
-const rowToTokenData = (row: any): TokenData => ({
-  id: row.id,
-  tokenId: row.token_id,
-  mapId: row.map_id,
-  currentHp: row.current_hp,
-  maxHp: row.max_hp,
-  tempHp: row.temp_hp || 0,
-  armorClass: row.armor_class,
-  speed: row.speed,
-  initiativeModifier: row.initiative_modifier || 0,
-  conditions: row.conditions ? JSON.parse(row.conditions) : [],
-  notes: row.notes,
-  createdAt: row.created_at,
-  updatedAt: row.updated_at,
-});
+const rowToTokenData = (row: any): TokenData => {
+  console.log("[TokenData] rowToTokenData input:", {
+    token_id: row.token_id,
+    has_conditions: !!row.conditions,
+    conditions_value: row.conditions,
+    current_hp: row.current_hp,
+    max_hp: row.max_hp,
+    armor_class: row.armor_class,
+  });
+
+  let conditions: TokenCondition[] = [];
+  if (row.conditions) {
+    try {
+      const parsed = JSON.parse(row.conditions);
+      // Ensure it's an array of strings, filter out any non-string values
+      conditions = (
+        Array.isArray(parsed)
+          ? parsed.filter((c: any) => typeof c === "string")
+          : []
+      ) as TokenCondition[];
+      console.log("[TokenData] Parsed conditions:", conditions);
+    } catch (e) {
+      console.error(
+        `[TokenData] Failed to parse conditions for token ${row.token_id}:`,
+        e,
+        "Raw value:",
+        row.conditions
+      );
+      conditions = [];
+    }
+  }
+
+  const result: TokenData = {
+    id: row.id,
+    tokenId: row.token_id,
+    mapId: row.map_id,
+    currentHp: row.current_hp ?? null,
+    maxHp: row.max_hp ?? null,
+    tempHp: row.temp_hp || 0,
+    armorClass: row.armor_class ?? null,
+    speed: row.speed ?? null,
+    initiativeModifier: row.initiative_modifier || 0,
+    conditions,
+    notes: row.notes ?? null,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+
+  console.log("[TokenData] rowToTokenData output:", {
+    id: result.id,
+    tokenId: result.tokenId,
+    mapId: result.mapId,
+    currentHp: result.currentHp,
+    maxHp: result.maxHp,
+    armorClass: result.armorClass,
+    conditions: result.conditions,
+  });
+
+  return result;
+};
 
 /**
  * Convert database row to InitiativeEntry object
@@ -54,11 +99,15 @@ export const getTokenData = async (
   db: sqlite.Database,
   tokenId: string
 ): Promise<TokenData | null> => {
+  console.log("[TokenDataDb] getTokenData requested:", { tokenId });
   const row = await db.get(
     `SELECT * FROM token_data WHERE token_id = ?`,
     tokenId
   );
-  return row ? rowToTokenData(row) : null;
+  console.log("[TokenDataDb] getTokenData row:", row);
+  const result = row ? rowToTokenData(row) : null;
+  console.log("[TokenDataDb] getTokenData returning:", result);
+  return result;
 };
 
 /**
@@ -68,11 +117,18 @@ export const getMapTokenData = async (
   db: sqlite.Database,
   mapId: string
 ): Promise<TokenData[]> => {
+  console.log("[TokenDataDb] getMapTokenData requested:", { mapId });
   const rows = await db.all(
     `SELECT * FROM token_data WHERE map_id = ? ORDER BY updated_at DESC`,
     mapId
   );
-  return rows.map(rowToTokenData);
+  console.log(
+    "[TokenDataDb] getMapTokenData rows count:",
+    rows ? rows.length : 0
+  );
+  const result = rows.map(rowToTokenData);
+  console.log("[TokenDataDb] getMapTokenData returning count:", result.length);
+  return result;
 };
 
 /**

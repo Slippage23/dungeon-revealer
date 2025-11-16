@@ -7,7 +7,7 @@ import graphql from "babel-plugin-relay/macro";
 // provide a local fallback type to prevent TypeScript from erroring on the missing module.
 type mapView_TokenHealthBar_tokenData$key = any;
 
-// [FIXED] Fragment name must now be prefixed with mapView_
+// Fragment is co-located with component; Relay will resolve this at runtime
 const Fragment = graphql`
   fragment TokenHealthBar_tokenData on TokenData {
     currentHp
@@ -17,7 +17,7 @@ const Fragment = graphql`
 `;
 
 interface TokenHealthBarProps {
-  tokenData: mapView_TokenHealthBar_tokenData$key;
+  tokenData: any;
   initialRadius: number; // The 3D radius of the token
 }
 
@@ -68,15 +68,26 @@ export const TokenHealthBar: React.FC<TokenHealthBarProps> = ({
 
   return (
     <group position={position} rotation={[0, 0, 0]} renderOrder={100}>
-      {/* 1. Background Bar (Total Slot) */}
-      <mesh position={[0, 0, -0.01]}>
-        <planeBufferGeometry attach="geometry" args={[barWidth, barHeight]} />
-        <meshBasicMaterial attach="material" color="black" />
-      </mesh>
+      {/* 1. Used HP Area (left side, filled with black) */}
+      {currentHpValue < maxHp && (
+        <mesh
+          position={[
+            -barWidth / 2 + (barWidth * currentHpValue) / maxHp / 2,
+            0,
+            0,
+          ]}
+        >
+          <planeBufferGeometry
+            attach="geometry"
+            args={[barWidth * (currentHpValue / maxHp), barHeight]}
+          />
+          <meshBasicMaterial attach="material" color="black" />
+        </mesh>
+      )}
 
-      {/* 2. Main HP Bar (Current HP) */}
+      {/* 2. Main HP Bar (Current HP) - colored portion */}
       {currentHpValue > 0 && (
-        <mesh position={[mainHpBarX, 0, 0]}>
+        <mesh position={[mainHpBarX, 0, 0.01]}>
           <planeBufferGeometry
             attach="geometry"
             args={[mainHpBarWidth, barHeight]}
@@ -87,7 +98,7 @@ export const TokenHealthBar: React.FC<TokenHealthBarProps> = ({
 
       {/* 3. Temporary HP Bar (Temp HP) */}
       {tempHpValue > 0 && (
-        <mesh position={[tempHpBarX, 0, 0]}>
+        <mesh position={[tempHpBarX, 0, 0.01]}>
           <planeBufferGeometry
             attach="geometry"
             args={[tempHpBarWidth, barHeight]}

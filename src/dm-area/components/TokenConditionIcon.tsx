@@ -4,16 +4,16 @@ import { useFragment } from "relay-hooks";
 import graphql from "babel-plugin-relay/macro";
 
 // NOTE: This import will resolve after a successful relay-compiler run.
-type mapView_TokenConditionIcon_conditions$key = any;
+type TokenConditionIcon_tokenData$key = any;
 
 const Fragment = graphql`
-  fragment TokenConditionIcon_conditions on TokenData {
+  fragment TokenConditionIcon_tokenData on TokenData {
     conditions
   }
 `;
 
 interface TokenConditionIconProps {
-  tokenData: mapView_TokenConditionIcon_conditions$key;
+  tokenData: TokenConditionIcon_tokenData$key;
   initialRadius: number; // The 3D radius of the token
   healthBarPresent: boolean; // Whether health bar is rendered (affects vertical offset)
 }
@@ -104,8 +104,7 @@ const CONDITION_CONFIG: Record<
 };
 
 /**
- * Renders condition indicator icons in a row below (or above) the token.
- * Each condition gets a small circle with an abbreviation.
+ * Renders condition text labels in a row above the health bar.
  */
 export const TokenConditionIcon: React.FC<TokenConditionIconProps> = ({
   tokenData: tokenDataKey,
@@ -119,58 +118,70 @@ export const TokenConditionIcon: React.FC<TokenConditionIconProps> = ({
   }
 
   const conditions = tokenData.conditions;
-  const iconSize = initialRadius * 0.4; // Each condition icon diameter
-  const spacing = iconSize * 0.2; // Gap between icons
-  const rowHeight = iconSize * 1.2; // Total height of condition row
 
-  // Vertical offset: below health bar if present, otherwise directly below token
-  const verticalOffset = healthBarPresent
-    ? initialRadius * 1.4 // Below health bar
-    : initialRadius * 0.6; // Below token, less offset
+  // Match the health bar dimensions
+  const barWidth = initialRadius * 1.8; // Same as health bar
+  const barHeight = initialRadius * 0.15; // Same as health bar
+  const topOffset = initialRadius * 1.1; // Where health bar is positioned
 
-  // Position icons in a centered row
-  const totalRowWidth =
-    conditions.length * iconSize + (conditions.length - 1) * spacing;
-  const startX = -totalRowWidth / 2;
+  // Position directly above the health bar
+  const verticalOffset = topOffset + barHeight / 2 + barHeight * 0.4; // Just above health bar
+
+  console.log("[TokenConditionIcon] Rendering conditions:", conditions);
 
   return (
     <group
-      position={[0, -verticalOffset, 0]}
+      position={[0, verticalOffset, 0]}
       rotation={[0, 0, 0]}
       renderOrder={99}
     >
       {conditions.map((conditionEnum: string, index: number) => {
+        // Ensure condition enum is lowercase for lookup
+        const conditionKey = conditionEnum.toLowerCase();
         const config =
-          CONDITION_CONFIG[conditionEnum.toLowerCase()] ||
-          CONDITION_CONFIG["poisoned"]; // Default fallback
+          CONDITION_CONFIG[conditionKey] || CONDITION_CONFIG["poisoned"]; // Default fallback
 
-        const xPos = startX + index * (iconSize + spacing) + iconSize / 2;
+        const displayText = config.fullName;
+
+        // Create canvas texture for text - sized for full bar width
+        const canvas = document.createElement("canvas");
+        canvas.width = 512; // Higher resolution for better text quality
+        canvas.height = 128;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return null;
+
+        // Clear canvas and draw text
+        ctx.fillStyle = config.color as string;
+        ctx.font = "bold 72px Arial";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(displayText, 256, 64);
+
+        const texture = new THREE.CanvasTexture(canvas);
+        texture.magFilter = THREE.LinearFilter;
+        texture.minFilter = THREE.LinearFilter;
+
+        // Scale text to match health bar width
+        const textWidth = barWidth;
+        const textHeight = barHeight * 1.5;
+        const verticalSpacing = textHeight * 1.3;
 
         return (
-          <group key={`${conditionEnum}-${index}`} position={[xPos, 0, 0]}>
-            {/* Colored circle indicating the condition */}
-            <mesh position={[0, 0, -0.01]}>
-              <circleBufferGeometry
-                attach="geometry"
-                args={[iconSize / 2, 16]}
-              />
-              <meshBasicMaterial
-                attach="material"
-                color={config.color}
-                opacity={0.95}
-                transparent
-              />
-            </mesh>
-
-            {/* Border ring for better visibility */}
-            <mesh position={[0, 0, 0]}>
-              <circleBufferGeometry
-                attach="geometry"
-                args={[iconSize / 2, 16]}
-              />
-              <meshBasicMaterial attach="material" color="black" wireframe />
-            </mesh>
-          </group>
+          <mesh
+            key={`${conditionEnum}-${index}`}
+            position={[0, index * verticalSpacing, 0.01]}
+          >
+            <planeBufferGeometry
+              attach="geometry"
+              args={[textWidth, textHeight]}
+            />
+            <meshBasicMaterial
+              attach="material"
+              map={texture}
+              transparent
+              depthWrite={false}
+            />
+          </mesh>
         );
       })}
     </group>

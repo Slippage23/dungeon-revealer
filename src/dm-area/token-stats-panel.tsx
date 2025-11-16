@@ -35,7 +35,7 @@ import {
 } from "@chakra-ui/react";
 import { DraggableWindow } from "../draggable-window";
 import * as Icon from "../feather-icons";
-import * as Button as CustomButton from "../button";
+import * as CustomButton from "../button";
 
 // GraphQL Queries and Mutations
 const TokenStatsPanel_TokenDataQuery = graphql`
@@ -163,16 +163,18 @@ export const TokenStatsPanel: React.FC<TokenStatsPanelProps> = ({
   const toast = useToast();
 
   // Query token data
-  const { data, error } = useQuery(
+  const { data, error } = useQuery<any>(
     TokenStatsPanel_TokenDataQuery,
     { tokenId },
     { fetchPolicy: "store-and-network" }
   );
 
   // Mutations
-  const [upsertTokenData] = useMutation(TokenStatsPanel_UpsertMutation);
-  const [applyDamage] = useMutation(TokenStatsPanel_ApplyDamageMutation);
-  const [toggleCondition] = useMutation(TokenStatsPanel_ToggleConditionMutation);
+  const [upsertTokenData] = useMutation<any>(TokenStatsPanel_UpsertMutation);
+  const [applyDamage] = useMutation<any>(TokenStatsPanel_ApplyDamageMutation);
+  const [toggleCondition] = useMutation<any>(
+    TokenStatsPanel_ToggleConditionMutation
+  );
 
   // Local state for form inputs
   const [currentHp, setCurrentHp] = React.useState<number | null>(null);
@@ -301,9 +303,12 @@ export const TokenStatsPanel: React.FC<TokenStatsPanelProps> = ({
       <DraggableWindow
         headerContent={`Token Stats - Error`}
         close={onClose}
+        onKeyDown={() => {}}
         bodyContent={
           <Box p={4}>
-            <Text color="red.500">Failed to load token data: {error.message}</Text>
+            <Text color="red.500">
+              Failed to load token data: {error.message}
+            </Text>
           </Box>
         }
       />
@@ -314,6 +319,7 @@ export const TokenStatsPanel: React.FC<TokenStatsPanelProps> = ({
     <DraggableWindow
       headerContent={`Token Stats - ${tokenId.substring(0, 8)}`}
       close={onClose}
+      onKeyDown={() => {}}
       bodyContent={
         <Box p={4} overflowY="auto" maxHeight="80vh">
           <VStack spacing={4} align="stretch">

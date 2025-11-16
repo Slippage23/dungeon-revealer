@@ -149,6 +149,7 @@ type TokenPartialChanges = Omit<Partial<MapTokenEntity>, "id">;
 
 const TokenListRendererFragment = graphql`
   fragment mapView_TokenListRendererFragment on Map {
+    id
     tokens {
       id
       ...mapView_TokenRendererMapTokenFragment
@@ -171,20 +172,13 @@ const TokenListRenderer = (props: {
           id={token.id}
           key={token.id}
           token={token}
+          mapId={map.id}
           columnWidth={map.grid?.columnWidth ?? null}
         />
       ))}
     </group>
   );
 };
-
-// [NEW FRAGMENT] For condition icons, used by TokenDataFragment
-const TokenConditionIconFragment = graphql`
-  fragment mapView_TokenConditionIcon_condition on TokenData {
-    id
-    conditions
-  }
-`;
 
 // [UPDATED FRAGMENT] To fetch HP and Conditions
 const TokenDataFragment = graphql`
@@ -197,6 +191,8 @@ const TokenDataFragment = graphql`
     tempHp
     armorClass
     conditions
+    ...TokenHealthBar_tokenData
+    ...TokenConditionIcon_tokenData
   }
 `;
 
@@ -239,6 +235,7 @@ type TokenDataType = {
 const TokenRenderer = (props: {
   id: string;
   token: mapView_TokenRendererMapTokenFragment$key;
+  mapId: string;
   columnWidth: number | null;
 }) => {
   const token = useFragment(TokenRendererMapTokenFragment, props.token);
@@ -272,6 +269,33 @@ const TokenRenderer = (props: {
   const columnWidth = props.columnWidth ?? 150;
 
   const store = useCreateStore();
+
+  // Create refs to capture mapId and tokenId for use in button handlers
+  // Use props.id which is the tokenId, and props.mapId which is the mapId
+  const dataRef = React.useRef<{ tokenId: string; mapId: string }>({
+    tokenId: props.id,
+    mapId: props.mapId,
+  });
+
+  React.useEffect(() => {
+    console.log("[TokenRenderer] Updating dataRef with:", {
+      tokenId: props.id,
+      mapId: props.mapId,
+    });
+    dataRef.current = {
+      tokenId: props.id,
+      mapId: props.mapId,
+    };
+  }, [props.id, props.mapId]);
+
+  // Ref to track current combat stat values from Leva controls
+  const combatStatsRef = React.useRef({
+    currentHp: tokenData?.currentHp ?? 0,
+    maxHp: tokenData?.maxHp ?? 0,
+    tempHp: tokenData?.tempHp ?? 0,
+    armorClass: tokenData?.armorClass ?? 10,
+    condition: tokenData?.conditions?.[0] ?? "None",
+  });
   const updateRadiusRef = React.useRef<null | ((radius: number) => void)>(null);
   const [values, setValues] = useControls(
     () => ({
@@ -498,22 +522,22 @@ const TokenRenderer = (props: {
           if (initial || !fromPanel) {
             return;
           }
+          combatStatsRef.current.currentHp = value;
         },
         onEditEnd: (value: number) => {
-          if (tokenData) {
-            mutate({
-              variables: {
-                input: {
-                  tokenId: tokenData.tokenId,
-                  mapId: tokenData.mapId,
-                  currentHp: value,
-                  maxHp: tokenData.maxHp,
-                  tempHp: tokenData.tempHp,
-                  armorClass: tokenData.armorClass,
-                },
+          // Allow mutations even if tokenData doesn't exist yet - backend will create it
+          mutate({
+            variables: {
+              input: {
+                tokenId: token.id,
+                mapId: props.mapId,
+                currentHp: value,
+                maxHp: tokenData?.maxHp ?? null,
+                tempHp: tokenData?.tempHp ?? 0,
+                armorClass: tokenData?.armorClass ?? null,
               },
-            });
-          }
+            },
+          });
         },
       },
       maxHp: {
@@ -526,22 +550,22 @@ const TokenRenderer = (props: {
           if (initial || !fromPanel) {
             return;
           }
+          combatStatsRef.current.maxHp = value;
         },
         onEditEnd: (value: number) => {
-          if (tokenData) {
-            mutate({
-              variables: {
-                input: {
-                  tokenId: tokenData.tokenId,
-                  mapId: tokenData.mapId,
-                  currentHp: tokenData.currentHp,
-                  maxHp: value,
-                  tempHp: tokenData.tempHp,
-                  armorClass: tokenData.armorClass,
-                },
+          // Allow mutations even if tokenData doesn't exist yet - backend will create it
+          mutate({
+            variables: {
+              input: {
+                tokenId: token.id,
+                mapId: props.mapId,
+                currentHp: tokenData?.currentHp ?? null,
+                maxHp: value,
+                tempHp: tokenData?.tempHp ?? 0,
+                armorClass: tokenData?.armorClass ?? null,
               },
-            });
-          }
+            },
+          });
         },
       },
       tempHp: {
@@ -554,22 +578,22 @@ const TokenRenderer = (props: {
           if (initial || !fromPanel) {
             return;
           }
+          combatStatsRef.current.tempHp = value;
         },
         onEditEnd: (value: number) => {
-          if (tokenData) {
-            mutate({
-              variables: {
-                input: {
-                  tokenId: tokenData.tokenId,
-                  mapId: tokenData.mapId,
-                  currentHp: tokenData.currentHp,
-                  maxHp: tokenData.maxHp,
-                  tempHp: value,
-                  armorClass: tokenData.armorClass,
-                },
+          // Allow mutations even if tokenData doesn't exist yet - backend will create it
+          mutate({
+            variables: {
+              input: {
+                tokenId: token.id,
+                mapId: props.mapId,
+                currentHp: tokenData?.currentHp ?? null,
+                maxHp: tokenData?.maxHp ?? null,
+                tempHp: value,
+                armorClass: tokenData?.armorClass ?? null,
               },
-            });
-          }
+            },
+          });
         },
       },
       armorClass: {
@@ -582,22 +606,22 @@ const TokenRenderer = (props: {
           if (initial || !fromPanel) {
             return;
           }
+          combatStatsRef.current.armorClass = value;
         },
         onEditEnd: (value: number) => {
-          if (tokenData) {
-            mutate({
-              variables: {
-                input: {
-                  tokenId: tokenData.tokenId,
-                  mapId: tokenData.mapId,
-                  currentHp: tokenData.currentHp,
-                  maxHp: tokenData.maxHp,
-                  tempHp: tokenData.tempHp,
-                  armorClass: value,
-                },
+          // Allow mutations even if tokenData doesn't exist yet - backend will create it
+          mutate({
+            variables: {
+              input: {
+                tokenId: token.id,
+                mapId: props.mapId,
+                currentHp: tokenData?.currentHp ?? null,
+                maxHp: tokenData?.maxHp ?? null,
+                tempHp: tokenData?.tempHp ?? 0,
+                armorClass: value,
               },
-            });
-          }
+            },
+          });
         },
       },
       condition: {
@@ -605,46 +629,83 @@ const TokenRenderer = (props: {
         label: "Condition",
         options: [
           "None",
-          "blinded",
-          "charmed",
-          "deafened",
-          "exhausted",
-          "frightened",
-          "grappled",
-          "incapacitated",
-          "invisible",
-          "paralyzed",
-          "petrified",
-          "poisoned",
-          "prone",
-          "restrained",
-          "stunned",
-          "unconscious",
+          "BLINDED",
+          "CHARMED",
+          "DEAFENED",
+          "EXHAUSTED",
+          "FRIGHTENED",
+          "GRAPPLED",
+          "INCAPACITATED",
+          "INVISIBLE",
+          "PARALYZED",
+          "PETRIFIED",
+          "POISONED",
+          "PRONE",
+          "RESTRAINED",
+          "STUNNED",
+          "UNCONSCIOUS",
         ],
         value: tokenData?.conditions?.[0] ?? "None",
         onChange: (condition: string, _, { initial, fromPanel }) => {
           if (initial || !fromPanel) {
             return;
           }
+          combatStatsRef.current.condition = condition;
         },
         onEditEnd: (condition: string) => {
-          if (tokenData) {
+          // Allow mutations even if tokenData doesn't exist yet - backend will create it
+          mutate({
+            variables: {
+              input: {
+                tokenId: token.id,
+                mapId: props.mapId,
+                currentHp: tokenData?.currentHp ?? null,
+                maxHp: tokenData?.maxHp ?? null,
+                tempHp: tokenData?.tempHp ?? 0,
+                armorClass: tokenData?.armorClass ?? null,
+                conditions: condition === "None" ? [] : [condition],
+              },
+            },
+          });
+        },
+      },
+      "---applyButton": buttonGroup({
+        label: null,
+        opts: {
+          "Apply Changes": () => {
+            console.log("[TokenRenderer] Apply Changes clicked");
+            // Access values from the ref that's updated by onChange handlers
+            const currentHp = combatStatsRef.current.currentHp;
+            const maxHp = combatStatsRef.current.maxHp;
+            const tempHp = combatStatsRef.current.tempHp;
+            const armorClass = combatStatsRef.current.armorClass;
+            const condition = combatStatsRef.current.condition;
+            console.log("Current combat stats from ref:", {
+              currentHp,
+              maxHp,
+              tempHp,
+              armorClass,
+              condition,
+              tokenId: dataRef.current.tokenId,
+              mapId: dataRef.current.mapId,
+            });
+            // Fire the mutation with current values from the ref
             mutate({
               variables: {
                 input: {
-                  tokenId: tokenData.tokenId,
-                  mapId: tokenData.mapId,
-                  currentHp: tokenData.currentHp,
-                  maxHp: tokenData.maxHp,
-                  tempHp: tokenData.tempHp,
-                  armorClass: tokenData.armorClass,
+                  tokenId: dataRef.current.tokenId,
+                  mapId: dataRef.current.mapId,
+                  currentHp: currentHp ?? null,
+                  maxHp: maxHp ?? null,
+                  tempHp: tempHp ?? 0,
+                  armorClass: armorClass ?? null,
                   conditions: condition === "None" ? [] : [condition],
                 },
               },
             });
-          }
+          },
         },
-      },
+      }),
     }),
     { store }
   );
@@ -974,20 +1035,20 @@ const TokenRenderer = (props: {
             />
           </mesh>
         )}
+
+        {/* [MOVED INSIDE] Render Overlays (Health Bar & Conditions) - Now children of animated.group so they move with token */}
+        {renderHealthBar && tokenData ? (
+          <TokenHealthBar tokenData={tokenData} initialRadius={initialRadius} />
+        ) : null}
+
+        {renderConditionIcons && tokenData ? (
+          <TokenConditionIcon
+            tokenData={tokenData}
+            initialRadius={initialRadius}
+            healthBarPresent={!!renderHealthBar}
+          />
+        ) : null}
       </animated.group>
-
-      {/* [NEW/UPDATED BLOCK] Render Overlays (Health Bar & Conditions) */}
-      {renderHealthBar && tokenData ? (
-        <TokenHealthBar tokenData={tokenData} initialRadius={initialRadius} />
-      ) : null}
-
-      {renderConditionIcons && tokenData ? (
-        <TokenConditionIcon
-          tokenData={tokenData}
-          initialRadius={initialRadius}
-          healthBarPresent={!!renderHealthBar}
-        />
-      ) : null}
 
       {/* Text should not be scaled and thus must be moved to a separate group. */}
       {textLabel ? (

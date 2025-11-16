@@ -25,6 +25,7 @@ import { isFileDrag } from "../hooks/use-drop-zone";
 import { useNoteWindowActions } from "./token-info-aside";
 import { MapControlInterface } from "../map-view";
 import { useTokenImageUpload } from "./token-image-upload";
+import { TokenStatsPanel } from "./token-stats-panel";
 import { dmAreaTokenAddManyMutation } from "./__generated__/dmAreaTokenAddManyMutation.graphql";
 import { dmArea_MapQuery } from "./__generated__/dmArea_MapQuery.graphql";
 
@@ -121,6 +122,9 @@ const Content = ({
   password: string;
 }): React.ReactElement => {
   const [loadedMapId, setLoadedMapId] = useLoadedMapId();
+  const [selectedTokenId, setSelectedTokenId] = React.useState<string | null>(
+    null
+  );
 
   const dmAreaResponse = useQuery<dmArea_MapQuery>(
     DmArea_MapQuery,
@@ -482,6 +486,7 @@ const Content = ({
                 setMode({ title: "MEDIA_LIBRARY" });
               }}
               updateToken={updateToken}
+              onTokenSelect={setSelectedTokenId}
             />
           </div>
         </LoadedMapDiv>
@@ -490,6 +495,13 @@ const Content = ({
         <ImportFileModal
           file={importModalFile}
           close={() => setImportModalFile(null)}
+        />
+      ) : null}
+      {selectedTokenId && loadedMapId ? (
+        <TokenStatsPanel
+          tokenId={selectedTokenId}
+          mapId={loadedMapId}
+          onClose={() => setSelectedTokenId(null)}
         />
       ) : null}
     </FetchContext.Provider>
