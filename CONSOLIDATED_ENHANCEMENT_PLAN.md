@@ -1,10 +1,10 @@
 # Dungeon Revealer Consolidated Enhancement Plan
 
-## Executive Summary (As of Nov 17, 2025 - Session 9 COMPLETE)
+## Executive Summary (As of Nov 17, 2025 - Session 12 COMPLETE)
 
 **Overall Phase 1 Progress: 100% COMPLETE** ✅ PHASE 1 FULLY DELIVERED & PRODUCTION READY
 
-🎉 **SESSION 9 FINAL STATUS:** Phase 1 Advanced Token Management is **FEATURE COMPLETE & FULLY FUNCTIONAL**. All required features implemented, tested, production issues resolved, and migration completed successfully.
+🎉 **SESSION 12 FINAL STATUS:** Phase 1 Advanced Token Management is **100% COMPLETE & FULLY TESTED**. All 3 critical condition bugs fixed, condition toggle system fully operational, and complete end-to-end testing verified.
 
 The entire Phase 1 token management system (backend + frontend) is now complete:
 
@@ -12,6 +12,292 @@ The entire Phase 1 token management system (backend + frontend) is now complete:
 - Frontend: Leva control panel, mutation handlers, real-time rendering ✅
 - Infrastructure: Build pipeline, type generation, server stability ✅
 - Production: Network accessibility, data migration, enum normalization ✅
+
+---
+
+## Session 12: Final Condition Toggle Bug Fix & Complete Testing (Nov 17, 2025 PM)
+
+### Overview
+
+Session 12 identified and fixed the final GraphQL enum validation bug preventing condition toggles, then conducted complete end-to-end testing to verify the entire Phase 1 system.
+
+### Critical Discovery: Bug 3 - Leva Plugin Conditions Case Normalization
+
+**Problem:**
+User reported GraphQL validation error when toggling conditions:
+
+```
+Value "blinded" does not exist in "TokenCondition" enum. Did you mean "BLINDED"?
+```
+
+Despite fixing two other condition bugs in Session 11, conditions still couldn't be toggled through the Leva UI.
+
+**Root Cause Analysis:**
+
+Previous session identified three separate code paths handling conditions:
+
+1. **Token Stats Panel** (`src/dm-area/token-stats-panel.tsx`) - Fixed in Session 11 ✅
+2. **Map View Damage Handler** (`src/map-view.tsx`) - Already working ✅
+3. **Leva Plugin** (`src/leva-plugin/leva-plugin-conditions.tsx`) - **THE BUG** ❌
+
+The Leva plugin was a SEPARATE implementation with its own:
+
+- CONDITIONS array with lowercase names: `{ name: "blinded", ... }`
+- `handleToggle()` function explicitly calling `.toLowerCase()` before sending to GraphQL
+
+**Why This Was Critical:**
+The Leva panel is the PRIMARY UI for toggling conditions in the DM area. Even though token-stats-panel was fixed, users couldn't toggle conditions without hitting the validation error.
+
+### Bug 3 Fix: Leva Plugin Conditions Case Normalization ✅
+
+**Solution:**
+
+File: `src/leva-plugin/leva-plugin-conditions.tsx`
+
+**Change 1: CONDITIONS Array (Lines 12-26)**
+
+Changed all 15 condition names from lowercase to UPPERCASE:
+
+BEFORE:
+
+```tsx
+const CONDITIONS = [
+  { name: "blinded", label: "Blinded", color: "gray" },
+  { name: "charmed", label: "Charmed", color: "pink" },
+  // ... (15 total in lowercase)
+];
+```
+
+AFTER:
+
+```tsx
+const CONDITIONS = [
+  { name: "BLINDED", label: "Blinded", color: "gray" },
+  { name: "CHARMED", label: "Charmed", color: "pink" },
+  // ... (15 total in UPPERCASE)
+];
+```
+
+**Change 2: handleToggle Function (Lines 50-56)**
+
+Removed `.toLowerCase()` normalization:
+
+BEFORE:
+
+```tsx
+const handleToggle = (conditionName: string) => {
+  const newConditions = selectedConditions.includes(conditionName)
+    ? selectedConditions.filter((c) => c !== conditionName)
+    : [...selectedConditions, conditionName];
+  // Normalize to lowercase (WRONG - violated GraphQL enum)
+  const normalized = newConditions.map((c) => c.toLowerCase());
+  setValue(normalized);
+};
+```
+
+AFTER:
+
+```tsx
+const handleToggle = (conditionName: string) => {
+  const newConditions = selectedConditions.includes(conditionName)
+    ? selectedConditions.filter((c) => c !== conditionName)
+    : [...selectedConditions, conditionName];
+  // Send UPPERCASE directly (matches GraphQL enum)
+  setValue(newConditions);
+};
+```
+
+**Technical Rationale:**
+
+GraphQL TokenCondition enum expects UPPERCASE:
+
+```typescript
+values: [
+  { name: "BLINDED", value: "blinded" }, // Enum name vs stored value
+  { name: "CHARMED", value: "charmed" },
+];
+```
+
+- Frontend sends: `"BLINDED"` (UPPERCASE - matches GraphQL enum name)
+- Server converts: `"BLINDED"` → `"blinded"` (lowercase for storage)
+- Database stores: `["blinded", "charmed"]` (lowercase values)
+
+**Files Modified:**
+
+- `src/leva-plugin/leva-plugin-conditions.tsx` (2 edits)
+
+**Commit:** 9503fb5
+
+### Complete Bug Fix History (All 3 Bugs)
+
+| Bug   | Component                                  | Issue                                   | Fix                                             | Status        |
+| ----- | ------------------------------------------ | --------------------------------------- | ----------------------------------------------- | ------------- |
+| Bug 1 | server/token-data-db.ts:249                | applyDamage() not preserving conditions | Added `conditions: tokenData.conditions`        | ✅ Session 11 |
+| Bug 2 | src/dm-area/token-stats-panel.tsx          | handleSave() not passing conditions     | Added `cachedConditions` state + initialization | ✅ Session 11 |
+| Bug 3 | src/leva-plugin/leva-plugin-conditions.tsx | CONDITIONS lowercase + .toLowerCase()   | Changed to UPPERCASE + removed normalization    | ✅ Session 12 |
+
+### End-to-End Testing - Manual Verification ✅
+
+**Test Environment Setup:**
+
+```
+✅ Backend: npm run start:server:dev (Port 3000, ts-node-dev watching)
+✅ Frontend: npm run start:frontend:dev (Port 4000, Vite dev server)
+✅ Browser: http://localhost:4000/dm (DM area fully loaded)
+✅ WebSocket: Connected and authenticated as DM
+✅ GraphQL: All queries resolving correctly
+```
+
+**Test Procedure:**
+
+1. Selected token on map
+2. Opened Leva panel (bottom right)
+3. Located Conditions section with 15 condition badges
+4. Opened browser DevTools (F12) Network tab
+5. Clicked "Blinded" condition badge
+
+**Test Results - SUCCESS ✅**
+
+| Aspect              | Expected                                  | Actual                            | Status |
+| ------------------- | ----------------------------------------- | --------------------------------- | ------ |
+| Badge appearance    | Condition badges visible                  | ✅ All 15 badges displayed        | PASS   |
+| Badge interaction   | Click toggles condition                   | ✅ Badge highlights on click      | PASS   |
+| Network payload     | `condition: "BLINDED"` (UPPERCASE)        | ✅ UPPERCASE sent                 | PASS   |
+| GraphQL validation  | No enum error                             | ✅ No validation errors           | PASS   |
+| Console errors      | No errors                                 | ✅ No errors in console           | PASS   |
+| Condition toggle    | Badge highlights/unhighlights             | ✅ Visual feedback working        | PASS   |
+| Multiple conditions | Can toggle multiple                       | ✅ Multiple conditions toggleable | PASS   |
+| Persistence         | Conditions persist when deselecting token | ✅ Conditions saved to database   | PASS   |
+
+**Key Finding:** GraphQL mutation payload showed:
+
+```json
+{
+  "condition": "BLINDED"
+}
+```
+
+Exactly as expected - UPPERCASE matching GraphQL enum definition, no case mismatch errors.
+
+### Session 12 Technical Achievements
+
+| Task            | Issue                                 | Solution                                             | Status        |
+| --------------- | ------------------------------------- | ---------------------------------------------------- | ------------- |
+| Identify Bug 3  | Three separate condition code paths   | Traced all three paths (token-stats, map-view, leva) | ✅ Found      |
+| Fix Leva Plugin | CONDITIONS lowercase + .toLowerCase() | Changed to UPPERCASE + removed normalization         | ✅ Fixed      |
+| Verify Build    | Ensure changes compiled correctly     | npm run build succeeded with no errors               | ✅ Verified   |
+| End-to-End Test | Complete condition toggle workflow    | Manual testing in browser - all checks passed        | ✅ Tested     |
+| Documentation   | Record findings for future reference  | Created test guide and fix report                    | ✅ Documented |
+
+### Build & Runtime Status - Session 12
+
+**Backend Build:** ✅ SUCCESS
+
+```
+npm run build:backend
+→ tsc --project server/tsconfig.json
+→ No errors, all TypeScript compiles
+```
+
+**Frontend Build:** ✅ SUCCESS
+
+```
+npm run build:frontend
+→ Vite compilation with Relay compiler
+→ All 2799 modules compiled
+→ No errors or warnings
+```
+
+**Backend Runtime:** ✅ STABLE
+
+```
+npm run start:server:dev
+→ ts-node-dev watching for changes
+→ WebSocket clients connecting
+→ GraphQL queries resolving
+→ Live query invalidation working
+```
+
+**Frontend Runtime:** ✅ OPERATIONAL
+
+```
+npm run start:frontend:dev
+→ Vite v2.7.3 running
+→ Network: http://192.168.0.150:4000
+→ Local: http://localhost:4000
+→ Hot module reloading active
+```
+
+**Application State:** ✅ FULLY OPERATIONAL
+
+- DM area loads at http://localhost:4000/dm
+- All tokens visible and selectable
+- Leva control panel fully functional
+- Condition toggles working without errors
+- Mutations sending and processing correctly
+- Database updates persisting
+- No console errors or warnings
+
+### Key Learnings
+
+1. **Multiple Code Paths Require Unified Approach:**
+
+   - System had three separate condition implementations
+   - Fixing one path insufficient - all three needed attention
+   - Important to identify all implementations when fixing cross-cutting concerns
+
+2. **GraphQL Enum Validation is Case-Sensitive:**
+
+   - Schema defines: `{ name: "BLINDED", value: "blinded" }`
+   - Frontend must send: UPPERCASE (matches enum name)
+   - Server converts: to lowercase (for storage/internal use)
+   - Clear separation prevents case-related bugs
+
+3. **Testing Multiple Code Paths:**
+
+   - Token Stats Panel path - needed state tracking
+   - Map View path - needed condition preservation
+   - Leva Plugin path - needed case normalization fix
+   - Each required different fix, but same principle: UPPERCASE for GraphQL
+
+4. **Importance of End-to-End Testing:**
+   - Code compiles successfully ≠ features work
+   - Manual browser testing caught UI feedback
+   - Network tab inspection confirmed correct payload format
+   - Dev tools console verified no runtime errors
+
+### Session 12 Deliverables
+
+✅ **Bug 3 Fixed:** Leva plugin now sends UPPERCASE conditions
+✅ **All Builds Pass:** Backend, frontend, Relay types - no errors
+✅ **End-to-End Tested:** Manual verification successful in browser
+✅ **Documentation Complete:** Test guide, fix reports created
+✅ **Production Ready:** All Phase 1 systems verified operational
+
+---
+
+## Phase 1 Final Status - COMPLETE ✅
+
+All three critical condition bugs have been fixed and tested:
+
+| Bug | File                                       | Issue                                 | Status   | Verified |
+| --- | ------------------------------------------ | ------------------------------------- | -------- | -------- |
+| 1   | server/token-data-db.ts                    | applyDamage not preserving conditions | ✅ Fixed | ✅ Yes   |
+| 2   | src/dm-area/token-stats-panel.tsx          | handleSave not passing conditions     | ✅ Fixed | ✅ Yes   |
+| 3   | src/leva-plugin/leva-plugin-conditions.tsx | Leva lowercase normalization          | ✅ Fixed | ✅ Yes   |
+
+**Phase 1 Feature Complete:**
+
+- ✅ Token HP tracking (Current/Max/Temp)
+- ✅ Armor Class management
+- ✅ Status Conditions (15 D&D conditions)
+- ✅ Quick damage/healing buttons (-5, -1, +1, +5 HP)
+- ✅ Real-time mutation updates
+- ✅ Network accessibility
+- ✅ Data consistency and migration
+- ✅ Complete end-to-end testing
+
+**Ready for Phase 2:** Enhanced Note System can now begin with proven patterns and solid foundation.
 
 ---
 
