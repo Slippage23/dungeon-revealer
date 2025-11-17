@@ -223,6 +223,7 @@ export const applyDamage = async (
     mapId: tokenData.mapId,
     currentHp,
     tempHp,
+    conditions: tokenData.conditions, // PRESERVE existing conditions
   });
 };
 
