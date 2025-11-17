@@ -413,14 +413,10 @@ export const mutationFields = [
       input: t.arg(t.NonNullInput(GraphQLTokenDataInput)),
     },
     resolve: (_, args, context) => {
-      console.log("[GraphQL upsertTokenData] Called with input:", {
-        tokenId: args.input.tokenId,
-        mapId: args.input.mapId,
-        currentHp: args.input.currentHp,
-        maxHp: args.input.maxHp,
-        tempHp: args.input.tempHp,
-        armorClass: args.input.armorClass,
-      });
+      console.log(
+        "[GraphQL upsertTokenData] Called with full input:",
+        args.input
+      );
       return RT.run(
         pipe(
           RT.fromTask(() =>

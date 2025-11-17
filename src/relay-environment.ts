@@ -23,6 +23,14 @@ export const createEnvironment = (socket: IOSocket) => {
     if (!request.text) throw new Error("Missing document.");
     const { text: operation, name } = request;
 
+    // Debug logging for upsertTokenData mutations
+    if (name === "tokenMutations_UpsertTokenDataMutation") {
+      console.log("[RELAY NETWORK] Sending mutation:", {
+        operationName: name,
+        variables,
+      });
+    }
+
     return Observable.create((sink) =>
       applyAsyncIterableIteratorToSink(
         applyLiveQueryJSONDiffPatch(

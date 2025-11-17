@@ -246,6 +246,19 @@ const TokenRenderer = (props: {
   const sharedMapState = React.useContext(SharedMapState);
   const updateToken = React.useContext(UpdateTokenContext);
   const [mutate] = useMutation(upsertTokenDataMutation);
+
+  // Debug logging
+  React.useEffect(() => {
+    if (tokenData) {
+      console.log("[DEBUG] tokenData state:", {
+        id: tokenData.id,
+        currentHp: tokenData.currentHp,
+        conditions: tokenData.conditions,
+        hasConditionsField: "conditions" in tokenData,
+      });
+    }
+  }, [tokenData]);
+
   const pendingChangesRef = React.useRef<TokenPartialChanges>({});
   const enqueueSave = useStaticRef(() =>
     debounce(() => {
@@ -519,19 +532,22 @@ const TokenRenderer = (props: {
         },
         onEditEnd: (value: number) => {
           // Allow mutations even if tokenData doesn't exist yet - backend will create it
-          mutate({
-            variables: {
-              input: {
-                tokenId: token.id,
-                mapId: props.mapId,
-                currentHp: value,
-                maxHp: tokenData?.maxHp ?? null,
-                tempHp: tokenData?.tempHp ?? 0,
-                armorClass: tokenData?.armorClass ?? null,
-                conditions: tokenData?.conditions ?? [],
-              },
+          const variables = {
+            input: {
+              tokenId: token.id,
+              mapId: props.mapId,
+              currentHp: value,
+              maxHp: tokenData?.maxHp ?? null,
+              tempHp: tokenData?.tempHp ?? 0,
+              armorClass: tokenData?.armorClass ?? null,
+              conditions: tokenData?.conditions ?? [],
             },
-          });
+          };
+          console.log(
+            "[MUTATION DEBUG] currentHp mutation variables:",
+            variables
+          );
+          mutate({ variables });
         },
       },
       maxHp: {
@@ -618,15 +634,38 @@ const TokenRenderer = (props: {
           });
         },
       },
-      conditions: levaPluginConditions({
-        value: (tokenData?.conditions ?? []) as string[],
-        onChange: (conditions: string[], _, { initial, fromPanel }) => {
+      conditions: {
+        type: LevaInputs.SELECT,
+        label: "Condition",
+        options: {
+          None: "",
+          Blinded: "BLINDED",
+          Charmed: "CHARMED",
+          Deafened: "DEAFENED",
+          Exhausted: "EXHAUSTED",
+          Frightened: "FRIGHTENED",
+          Grappled: "GRAPPLED",
+          Incapacitated: "INCAPACITATED",
+          Invisible: "INVISIBLE",
+          Paralyzed: "PARALYZED",
+          Petrified: "PETRIFIED",
+          Poisoned: "POISONED",
+          Prone: "PRONE",
+          Restrained: "RESTRAINED",
+          Stunned: "STUNNED",
+          Unconscious: "UNCONSCIOUS",
+        },
+        value:
+          tokenData?.conditions && tokenData.conditions.length > 0
+            ? tokenData.conditions[0]
+            : "",
+        onChange: (value: string, _, { initial, fromPanel }) => {
           if (initial || !fromPanel) {
             return;
           }
         },
-        onEditEnd: (conditions: string[]) => {
-          // Allow mutations even if tokenData doesn't exist yet - backend will create it
+        onEditEnd: (value: string) => {
+          const newConditions = value ? [value] : [];
           mutate({
             variables: {
               input: {
@@ -636,12 +675,12 @@ const TokenRenderer = (props: {
                 maxHp: tokenData?.maxHp ?? null,
                 tempHp: tokenData?.tempHp ?? 0,
                 armorClass: tokenData?.armorClass ?? null,
-                conditions: conditions,
+                conditions: newConditions,
               },
             },
           });
         },
-      }),
+      },
     }),
     { store }
   );
