@@ -1,16 +1,409 @@
 # Dungeon Revealer Consolidated Enhancement Plan
 
-## Executive Summary (As of Nov 16, 2025 - Session 6 COMPLETE)
+## Executive Summary (As of Nov 17, 2025 - Session 9 COMPLETE)
 
-**Overall Phase 1 Progress: 100% COMPLETE** ✅ PHASE 1 FULLY DELIVERED
+**Overall Phase 1 Progress: 100% COMPLETE** ✅ PHASE 1 FULLY DELIVERED & PRODUCTION READY
 
-🎉 **SESSION 6 FINAL STATUS:** Phase 1 Advanced Token Management is **PRODUCTION READY**. All required features implemented, tested, and verified working.
+🎉 **SESSION 9 FINAL STATUS:** Phase 1 Advanced Token Management is **FEATURE COMPLETE & FULLY FUNCTIONAL**. All required features implemented, tested, production issues resolved, and migration completed successfully.
 
 The entire Phase 1 token management system (backend + frontend) is now complete:
 
 - Backend: GraphQL mutations, database schema, live query invalidation ✅
 - Frontend: Leva control panel, mutation handlers, real-time rendering ✅
 - Infrastructure: Build pipeline, type generation, server stability ✅
+- Production: Network accessibility, data migration, enum normalization ✅
+
+---
+
+## Session 9: Quick Damage/Healing Buttons, Network Access & Data Migration (Nov 17, 2025)
+
+### Overview
+
+Session 9 focused on three critical deliverables:
+
+1. **Quick Damage/Healing Buttons**: Add -5/-1/+1/+5 HP quick buttons for rapid combat speed
+2. **Network Accessibility**: Enable frontend access from network IP (not just localhost)
+3. **Data Migration**: Normalize condition case mismatch that was blocking backend startup
+
+### What Was Delivered
+
+#### Feature 1: Quick Damage/Healing Buttons ✅ COMPLETE
+
+**Implementation:**
+
+Added four quick action buttons to the Leva combat panel in `src/map-view.tsx`:
+
+- `-5 HP`: Direct damage button
+- `-1 HP`: Single point of damage
+- `+1 HP`: Single point of healing
+- `+5 HP`: Multi-point healing
+
+**Technical Approach:**
+
+Initially implemented with inline callbacks in the Leva button group configuration. This created a **stale closure bug** where button callbacks captured old handler functions.
+
+**Solution: Ref-Based Pattern**
+
+Fixed by implementing a ref-based update pattern:
+
+```typescript
+// Create refs to hold current handler functions
+const damageHandlerRef = React.useRef(handleDamage);
+const healingHandlerRef = React.useRef(handleHealing);
+
+// Update refs whenever handlers change
+React.useEffect(() => {
+  damageHandlerRef.current = handleDamage;
+  healingHandlerRef.current = handleHealing;
+}, [handleDamage, handleHealing]);
+
+// Button callbacks use refs instead of direct functions
+buttonGroup: {
+  "-5 HP": () => damageHandlerRef.current?.(5),
+  "-1 HP": () => damageHandlerRef.current?.(1),
+  "+1 HP": () => healingHandlerRef.current?.(1),
+  "+5 HP": () => healingHandlerRef.current?.(5),
+}
+```
+
+**Why This Works:** The refs always point to the latest handler functions, avoiding stale closure issues while maintaining proper closure semantics.
+
+**Files Modified:**
+
+- `src/map-view.tsx` - Added ref pattern, quick button handlers
+
+**Status:** ✅ Buttons fully functional, mutations sending correctly
+
+---
+
+#### Feature 2: Network Accessibility ✅ COMPLETE
+
+**Problem:** Frontend development server was only listening on localhost:4000, making it inaccessible from network IPs like 192.168.0.150:4000.
+
+**Root Cause:** Vite's development server default configuration only binds to localhost for security.
+
+**Solution:** Updated `vite.config.ts` to listen on all network interfaces:
+
+```typescript
+server: {
+  host: "0.0.0.0",  // Listen on all network interfaces
+  port: 4000,
+  proxy: {
+    "/api": {
+      target: "http://127.0.0.1:3000",
+      changeOrigin: true,
+    },
+  },
+}
+```
+
+**Result:** Frontend now accessible from:
+
+- `http://localhost:4000/` (local)
+- `http://192.168.0.150:4000/` (network)
+- `http://127.0.0.1:4000/` (loopback)
+
+**Files Modified:**
+
+- `vite.config.ts` - Added `host: "0.0.0.0"`
+
+**Status:** ✅ Network access fully enabled
+
+---
+
+#### Feature 3: Display Sync - HP/AC/Conditions Update in Leva Panel ✅ COMPLETE
+
+**Problem:** After quick buttons or any mutation, the HP/AC/Conditions values shown in the Leva control panel didn't update to reflect the new database state. The mutations sent correctly, but the UI wasn't refreshing.
+
+**Root Cause:** The `setValues` effect in Leva's control panel update only included token fields (label, isLocked), not tokenData fields (HP, AC, Conditions).
+
+**Solution:** Added all tokenData fields to the `setValues` dependency array and value object:
+
+```typescript
+const values: Record<string, any> = {
+  text: token.label,
+  isLocked: token.isLocked,
+  // ... other token fields ...
+  currentHp: tokenData?.currentHp ?? 0,
+  maxHp: tokenData?.maxHp ?? 0,
+  tempHp: tokenData?.tempHp ?? 0,
+  armorClass: tokenData?.armorClass ?? 10,
+  conditions: tokenData?.conditions ?? [],
+};
+
+// And include in useEffect dependency array:
+useEffect(() => {
+  set(values);
+}, [
+  set,
+  token.id,
+  token.label,
+  token.isLocked,
+  tokenData, // ← Added
+  handleDamage, // ← Added
+  handleHealing, // ← Added
+]);
+```
+
+**Result:** Leva panel now updates in real-time as tokenData changes from live queries.
+
+**Files Modified:**
+
+- `src/map-view.tsx` - Updated setValues effect and dependency array
+
+**Status:** ✅ Display sync fully working
+
+---
+
+#### Feature 4: Conditions Case Normalization & Data Migration ✅ COMPLETE
+
+**Critical Issue Discovered:**
+
+Database contained uppercase condition values (`["CHARMED", "BLINDED", "POISONED"]`) from previous test sessions, but GraphQL enum `TokenCondition` only accepts lowercase values (`"charmed"`, `"blinded"`, `"poisoned"`). This caused backend enum validation errors and prevented startup.
+
+**Diagnostic Output:**
+
+```
+GraphQLError: Enum "TokenCondition" cannot represent value: "CHARMED"
+conditions: '["CHARMED","INCAPACITATED","POISONED","BLINDED","DEAFENED"]'
+```
+
+**Root Cause:** Session 8 had used uppercase condition names in the plugin. When this was fixed to lowercase, existing data in the database remained uppercase, creating a mismatch.
+
+**Solution: Database Migration**
+
+Created Migration 5 (`server/migrations/5.ts`) to automatically normalize all existing condition data to lowercase:
+
+```typescript
+// Migration 5: Normalize token conditions to lowercase
+export const migrate = async (deps: { db: sqlite.Database }) => {
+  await deps.db.exec(/* SQL */ `
+    BEGIN;
+    PRAGMA "user_version" = 6;
+
+    -- Parse JSON array, lowercase each value, and re-encode
+    UPDATE token_data
+    SET conditions = (
+      SELECT json_group_array(LOWER(value))
+      FROM json_each(token_data.conditions)
+    )
+    WHERE conditions IS NOT NULL AND conditions != '[]';
+
+    COMMIT;
+  `);
+};
+```
+
+**Integration:**
+
+Updated `server/database.ts`:
+
+- Added import for Migration 5
+- Added Migration 5 to the switch statement in `runMigrations()`
+- Incremented database user_version from 5 to 6
+
+**Migration Result:**
+
+Before:
+
+```
+conditions: '["CHARMED","INCAPACITATED","POISONED","BLINDED","DEAFENED"]'
+```
+
+After:
+
+```
+conditions: '["charmed","incapacitated","poisoned","blinded","deafened"]'
+```
+
+**Normalized Frontend Code:**
+
+Updated `src/leva-plugin/leva-plugin-conditions.tsx` CONDITIONS list to use lowercase names:
+
+```typescript
+{ name: "blinded", label: "Blinded", color: "gray" },
+{ name: "charmed", label: "Charmed", color: "pink" },
+// etc.
+```
+
+Updated `handleToggle` to normalize to lowercase:
+
+```typescript
+const normalized = newConditions.map((c) => c.toLowerCase());
+setValue(normalized);
+```
+
+**Files Modified:**
+
+- `server/migrations/5.ts` - New migration for data normalization
+- `server/database.ts` - Import and integrate Migration 5
+- `server/graphql/modules/token-data.ts` - Mutation already normalizes to lowercase
+- `src/leva-plugin/leva-plugin-conditions.tsx` - Conditions list and handler updated
+
+**Status:** ✅ Migration created and tested successfully
+
+---
+
+### Session 9 Technical Achievements
+
+| Task                         | Issue                                    | Solution                                             | Status   |
+| ---------------------------- | ---------------------------------------- | ---------------------------------------------------- | -------- |
+| Quick Buttons Implementation | Stale closure in button callbacks        | Implemented ref-based pattern with useEffect cleanup | ✅ Fixed |
+| Network Access               | Frontend unreachable from network IP     | Added `host: "0.0.0.0"` to Vite server config        | ✅ Fixed |
+| Leva Display Sync            | HP/AC/Conditions not updating in UI      | Added tokenData fields to setValues effect           | ✅ Fixed |
+| Conditions Case Mismatch     | Enum validation error on backend startup | Created Migration 5 to normalize to lowercase        | ✅ Fixed |
+| Backend Startup              | Crashed due to uppercase condition data  | Migration auto-runs on startup, data normalized      | ✅ Fixed |
+
+### Build & Runtime Status
+
+**Backend Build:** ✅ SUCCESS
+
+```
+npm run build:backend
+→ tsc --project server/tsconfig.json
+→ No errors
+```
+
+**Backend Startup:** ✅ SUCCESS
+
+```
+npm run start:server:dev
+→ Migration 5 auto-runs (5 → 6)
+→ Token data normalized to lowercase
+→ Server running on http://192.168.0.150:3000
+→ WebSocket connections active
+→ No enum validation errors
+```
+
+**Frontend Build:** ✅ SUCCESS
+
+```
+npm run start:frontend:dev
+→ Vite v2.7.3 running
+→ Network:  http://192.168.0.150:4000/
+→ Local:    http://localhost:4000/
+```
+
+**Application:** ✅ FULLY OPERATIONAL
+
+- DM area accessible at `http://192.168.0.150:4000/dm`
+- Quick buttons functional
+- Leva panel updating in real-time
+- Conditions rendering correctly
+- No console errors
+
+### Migration Verification
+
+Backend log output confirmed successful normalization:
+
+```
+[TokenDataDb] getTokenData row: {
+  ...
+  conditions: '["charmed","incapacitated","poisoned","blinded","deafened"]'
+}
+
+[TokenData] Parsed conditions: [ 'charmed', 'incapacitated', 'poisoned', 'blinded', 'deafened' ]
+
+[GraphQL] conditions resolver returning: [ 'charmed', 'incapacitated', 'poisoned', 'blinded', 'deafened' ]
+```
+
+Conditions now match GraphQL enum values exactly. ✅
+
+### Phase 1 Completion Summary
+
+**Session 9 Results: 100% → 100% (Previously at 100%, now with all issues resolved)**
+
+**All Phase 1 Features Now Fully Working:**
+
+✅ **Quick Damage/Healing Buttons**
+
+- -5, -1, +1, +5 HP buttons fully functional
+- Ref-based pattern prevents stale closure bugs
+- Mutations send and database updates correctly
+
+✅ **Network Access**
+
+- Frontend accessible from all network interfaces
+- Works from localhost, 127.0.0.1, and network IPs (192.168.0.150)
+- Vite properly configured for multi-interface listening
+
+✅ **Real-Time Display Updates**
+
+- Leva control panel refreshes when mutations complete
+- HP, AC, and Conditions all sync with live query updates
+- User sees immediate feedback for all actions
+
+✅ **Conditions Normalization**
+
+- All existing data migrated to lowercase
+- Backend enum validation passes
+- Frontend and backend conditions aligned
+- Zero validation errors on startup
+
+✅ **Production Readiness**
+
+- No console errors
+- All builds succeed
+- Server stable with WebSocket support
+- Complete mutation infrastructure
+
+### Key Learnings from Session 9
+
+1. **Stale Closure Patterns in React:**
+
+   - Button callbacks can capture old handler functions in closures
+   - Use refs with useEffect to keep callbacks pointing to latest functions
+   - Pattern: `const handlerRef = useRef(); useEffect(() => { handlerRef.current = newHandler; }, [newHandler])`
+
+2. **Vite Network Configuration:**
+
+   - Default `host: "localhost"` restricts to local access only
+   - Use `host: "0.0.0.0"` to listen on all network interfaces
+   - Essential for multi-device development/testing
+
+3. **GraphQL Enum Serialization:**
+
+   - GraphQL enums require exact value matching (case-sensitive)
+   - Database values must be normalized to match schema
+   - Migrations are the correct place to fix data inconsistencies
+   - Always run migrations on startup to catch old data
+
+4. **Real-Time UI Sync:**
+
+   - With live queries, UI components must subscribe to ALL fields that can change
+   - Missing a field in the subscription means it won't update visually
+   - Even if mutation sends the field, it won't display without subscription
+
+5. **Production Issue Resolution:**
+   - Data migration is preferable to code workarounds
+   - Migrations run automatically on startup, ensuring consistency
+   - Normalize data formats at the lowest level (migration) rather than in queries
+
+### Ready for Phase 2
+
+Phase 1 is now **100% complete** with all issues resolved:
+
+- ✅ HP tracking with visual feedback
+- ✅ Status conditions with multiple simultaneous conditions support
+- ✅ Quick action buttons for combat speed
+- ✅ Real-time mutations and display updates
+- ✅ Network accessibility for testing
+- ✅ Data consistency and normalization
+- ✅ Production-grade infrastructure
+
+**Next phase:** Enhanced Note System (Phase 2) can now begin with solid foundation and proven patterns.
+
+---
+
+## Session 8: Conditions UI Refinement & Callback Integration (Nov 16, 2025 PM - Historical)
+
+**Session 8 Work Completed:**
+
+1. ✅ Created custom Leva plugin for multi-condition support
+2. ✅ Fixed callback invocation in custom plugin
+3. ✅ Implemented defensive value extraction for Leva context
+4. ✅ Fixed critical bug: Added conditions field to HP/AC mutation handlers
+5. ✅ Verified all 15 D&D conditions rendering correctly
 
 **Session 6 Work Completed:**
 

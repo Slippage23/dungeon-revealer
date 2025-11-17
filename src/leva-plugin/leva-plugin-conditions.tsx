@@ -9,26 +9,26 @@ import { Wrap, WrapItem, Badge, Tooltip } from "@chakra-ui/react";
 const { Row, Label } = LevaComponents;
 
 const CONDITIONS = [
-  { name: "BLINDED", label: "Blinded", color: "gray" },
-  { name: "CHARMED", label: "Charmed", color: "pink" },
-  { name: "DEAFENED", label: "Deafened", color: "gray" },
-  { name: "EXHAUSTED", label: "Exhausted", color: "yellow" },
-  { name: "FRIGHTENED", label: "Frightened", color: "purple" },
-  { name: "GRAPPLED", label: "Grappled", color: "orange" },
-  { name: "INCAPACITATED", label: "Incapacitated", color: "red" },
-  { name: "INVISIBLE", label: "Invisible", color: "blue" },
-  { name: "PARALYZED", label: "Paralyzed", color: "purple" },
-  { name: "PETRIFIED", label: "Petrified", color: "gray" },
-  { name: "POISONED", label: "Poisoned", color: "green" },
-  { name: "PRONE", label: "Prone", color: "orange" },
-  { name: "RESTRAINED", label: "Restrained", color: "red" },
-  { name: "STUNNED", label: "Stunned", color: "yellow" },
-  { name: "UNCONSCIOUS", label: "Unconscious", color: "purple" },
+  { name: "blinded", label: "Blinded", color: "gray" },
+  { name: "charmed", label: "Charmed", color: "pink" },
+  { name: "deafened", label: "Deafened", color: "gray" },
+  { name: "exhausted", label: "Exhausted", color: "yellow" },
+  { name: "frightened", label: "Frightened", color: "purple" },
+  { name: "grappled", label: "Grappled", color: "orange" },
+  { name: "incapacitated", label: "Incapacitated", color: "red" },
+  { name: "invisible", label: "Invisible", color: "blue" },
+  { name: "paralyzed", label: "Paralyzed", color: "purple" },
+  { name: "petrified", label: "Petrified", color: "gray" },
+  { name: "poisoned", label: "Poisoned", color: "green" },
+  { name: "prone", label: "Prone", color: "orange" },
+  { name: "restrained", label: "Restrained", color: "red" },
+  { name: "stunned", label: "Stunned", color: "yellow" },
+  { name: "unconscious", label: "Unconscious", color: "purple" },
 ];
 
 const ConditionsPicker = () => {
   const context: any = useInputContext<any>();
-  const { displayValue, onUpdate } = context;
+  const { displayValue, setValue } = context;
 
   // Handle different value structures - displayValue might be wrapped or unwrapped
   const getSelectedConditions = (): string[] => {
@@ -50,18 +50,16 @@ const ConditionsPicker = () => {
     const newConditions = selectedConditions.includes(conditionName)
       ? selectedConditions.filter((c) => c !== conditionName)
       : [...selectedConditions, conditionName];
-    onUpdate(newConditions);
-    // Trigger onEditEnd callback if available in context
-    if (context.onEditEnd && typeof context.onEditEnd === "function") {
-      context.onEditEnd(newConditions);
-    }
+    // Normalize to lowercase (matching enum values) before saving
+    const normalized = newConditions.map((c) => c.toLowerCase());
+    setValue(normalized);
   };
 
   return (
     <Row input>
       <Label>Conditions</Label>
       <Wrap spacing={1}>
-        {CONDITIONS.map((condition) => {
+        {CONDITIONS.map((condition: typeof CONDITIONS[0]) => {
           const isActive = selectedConditions.includes(condition.name);
           return (
             <WrapItem key={condition.name}>

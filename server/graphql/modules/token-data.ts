@@ -417,6 +417,10 @@ export const mutationFields = [
         "[GraphQL upsertTokenData] Called with full input:",
         args.input
       );
+      // Normalize conditions to lowercase (matching enum values)
+      const normalizedConditions = args.input.conditions?.map((c: string) =>
+        c.toLowerCase()
+      ) as TokenCondition[] | undefined;
       return RT.run(
         pipe(
           RT.fromTask(() =>
@@ -429,9 +433,7 @@ export const mutationFields = [
               armorClass: args.input.armorClass ?? undefined,
               speed: args.input.speed ?? undefined,
               initiativeModifier: args.input.initiativeModifier ?? undefined,
-              conditions:
-                (args.input.conditions as TokenCondition[] | undefined) ??
-                undefined,
+              conditions: normalizedConditions,
               notes: args.input.notes ?? undefined,
             })
           )

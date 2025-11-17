@@ -247,6 +247,57 @@ const TokenRenderer = (props: {
   const updateToken = React.useContext(UpdateTokenContext);
   const [mutate] = useMutation(upsertTokenDataMutation);
 
+  // Quick action handlers for damage/healing
+  const handleDamage = React.useCallback(
+    (amount: number) => {
+      const newHp = Math.max(0, (tokenData?.currentHp ?? 0) - amount);
+      mutate({
+        variables: {
+          input: {
+            tokenId: token.id,
+            mapId: props.mapId,
+            currentHp: newHp,
+            maxHp: tokenData?.maxHp ?? null,
+            tempHp: tokenData?.tempHp ?? 0,
+            armorClass: tokenData?.armorClass ?? null,
+            conditions: tokenData?.conditions ?? [],
+          },
+        },
+      });
+    },
+    [mutate, token.id, props.mapId, tokenData]
+  );
+
+  const handleHealing = React.useCallback(
+    (amount: number) => {
+      const maxHp = tokenData?.maxHp ?? 100;
+      const newHp = Math.min(maxHp, (tokenData?.currentHp ?? 0) + amount);
+      mutate({
+        variables: {
+          input: {
+            tokenId: token.id,
+            mapId: props.mapId,
+            currentHp: newHp,
+            maxHp: tokenData?.maxHp ?? null,
+            tempHp: tokenData?.tempHp ?? 0,
+            armorClass: tokenData?.armorClass ?? null,
+            conditions: tokenData?.conditions ?? [],
+          },
+        },
+      });
+    },
+    [mutate, token.id, props.mapId, tokenData]
+  );
+
+  // Store refs for button handlers
+  const damageHandlerRef = React.useRef(handleDamage);
+  const healingHandlerRef = React.useRef(handleHealing);
+
+  React.useEffect(() => {
+    damageHandlerRef.current = handleDamage;
+    healingHandlerRef.current = handleHealing;
+  }, [handleDamage, handleHealing]);
+
   // Debug logging
   React.useEffect(() => {
     if (tokenData) {
@@ -518,7 +569,15 @@ const TokenRenderer = (props: {
         transient: false,
       }),
       // Combat Stats Section
-      "---combatStats": buttonGroup({}),
+      "---combatStats": buttonGroup({
+        label: null,
+        opts: {
+          "-5 HP": () => damageHandlerRef.current?.(5),
+          "-1 HP": () => damageHandlerRef.current?.(1),
+          "+1 HP": () => healingHandlerRef.current?.(1),
+          "+5 HP": () => healingHandlerRef.current?.(5),
+        },
+      }),
       currentHp: {
         type: LevaInputs.NUMBER,
         label: "Current HP",
@@ -543,6 +602,14 @@ const TokenRenderer = (props: {
               conditions: tokenData?.conditions ?? [],
             },
           };
+          console.log(
+            "[MUTATION DEBUG] currentHp - tokenData.conditions:",
+            tokenData?.conditions,
+            "Type:",
+            typeof tokenData?.conditions,
+            "isArray:",
+            Array.isArray(tokenData?.conditions)
+          );
           console.log(
             "[MUTATION DEBUG] currentHp mutation variables:",
             variables
@@ -634,38 +701,16 @@ const TokenRenderer = (props: {
           });
         },
       },
-      conditions: {
-        type: LevaInputs.SELECT,
-        label: "Condition",
-        options: {
-          None: "",
-          Blinded: "BLINDED",
-          Charmed: "CHARMED",
-          Deafened: "DEAFENED",
-          Exhausted: "EXHAUSTED",
-          Frightened: "FRIGHTENED",
-          Grappled: "GRAPPLED",
-          Incapacitated: "INCAPACITATED",
-          Invisible: "INVISIBLE",
-          Paralyzed: "PARALYZED",
-          Petrified: "PETRIFIED",
-          Poisoned: "POISONED",
-          Prone: "PRONE",
-          Restrained: "RESTRAINED",
-          Stunned: "STUNNED",
-          Unconscious: "UNCONSCIOUS",
-        },
-        value:
-          tokenData?.conditions && tokenData.conditions.length > 0
-            ? tokenData.conditions[0]
-            : "",
-        onChange: (value: string, _, { initial, fromPanel }) => {
+      conditions: levaPluginConditions({
+        value: (tokenData?.conditions ?? []) as string[],
+        onChange: (value: string[], _, { initial, fromPanel }) => {
           if (initial || !fromPanel) {
             return;
           }
-        },
-        onEditEnd: (value: string) => {
-          const newConditions = value ? [value] : [];
+          console.log(
+            "[MUTATION DEBUG] conditions onChange - selected conditions:",
+            value
+          );
           mutate({
             variables: {
               input: {
@@ -675,12 +720,13 @@ const TokenRenderer = (props: {
                 maxHp: tokenData?.maxHp ?? null,
                 tempHp: tokenData?.tempHp ?? 0,
                 armorClass: tokenData?.armorClass ?? null,
-                conditions: newConditions,
+                conditions: value,
               },
             },
           });
         },
-      },
+        transient: false,
+      }),
     }),
     { store }
   );
@@ -702,6 +748,12 @@ const TokenRenderer = (props: {
       isVisibleForPlayers: token.isVisibleForPlayers,
       referenceId: token.referenceId,
       tokenImageId: token.tokenImage?.id ?? null,
+      // Update HP/AC/Conditions from tokenData
+      currentHp: tokenData?.currentHp ?? 0,
+      maxHp: tokenData?.maxHp ?? 0,
+      tempHp: tokenData?.tempHp ?? 0,
+      armorClass: tokenData?.armorClass ?? 10,
+      conditions: tokenData?.conditions ?? [],
     };
 
     if (editingStateRef.radius === 0) {
@@ -731,6 +783,9 @@ const TokenRenderer = (props: {
     token.referenceId,
     token.tokenImage?.id,
     token.rotation,
+    tokenData,
+    handleDamage,
+    handleHealing,
   ]);
 
   const initialRadius = useStaticRef(() =>
