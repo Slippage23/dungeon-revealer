@@ -185,6 +185,7 @@ export const TokenStatsPanel: React.FC<TokenStatsPanelProps> = ({
   const [initiativeModifier, setInitiativeModifier] = React.useState<number>(0);
   const [notes, setNotes] = React.useState<string>("");
   const [damageAmount, setDamageAmount] = React.useState<string>("");
+  const [cachedConditions, setCachedConditions] = React.useState<string[]>([]);
 
   // Initialize state from query data
   React.useEffect(() => {
@@ -196,6 +197,7 @@ export const TokenStatsPanel: React.FC<TokenStatsPanelProps> = ({
       setSpeed(data.tokenData.speed);
       setInitiativeModifier(data.tokenData.initiativeModifier || 0);
       setNotes(data.tokenData.notes || "");
+      setCachedConditions(data.tokenData.conditions || []);
     }
   }, [data?.tokenData]);
 
@@ -221,6 +223,7 @@ export const TokenStatsPanel: React.FC<TokenStatsPanelProps> = ({
           speed,
           initiativeModifier,
           notes: notes || null,
+          conditions: cachedConditions, // ✅ PRESERVE CONDITIONS
         },
       },
       onCompleted: () => {
@@ -277,6 +280,13 @@ export const TokenStatsPanel: React.FC<TokenStatsPanelProps> = ({
 
   // Toggle condition
   const handleToggleCondition = (condition: string) => {
+    // Update cached conditions immediately for UI feedback
+    const normalizedCondition = condition.toLowerCase();
+    const newConditions = cachedConditions.includes(normalizedCondition)
+      ? cachedConditions.filter((c) => c !== normalizedCondition)
+      : [...cachedConditions, normalizedCondition];
+    setCachedConditions(newConditions);
+
     toggleCondition({
       variables: {
         input: {
