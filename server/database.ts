@@ -7,6 +7,9 @@ import * as migration2 from "./migrations/2";
 import * as migration3 from "./migrations/3";
 import * as migration4 from "./migrations/4";
 import * as migration5 from "./migrations/5";
+import * as migration6 from "./migrations/6";
+import * as migration7 from "./migrations/7";
+import * as migration8 from "./migrations/8";
 
 /**
  * @param {{ dataPath: string }}
@@ -45,6 +48,15 @@ const runMigrations = async (
     }
     case 5: {
       await migration5.migrate({ db });
+    }
+    case 6: {
+      await migration6.migrate({ db });
+    }
+    case 7: {
+      await migration7.migrate({ db });
+    }
+    case 8: {
+      await migration8.migrate({ db });
     }
   }
 
