@@ -29,10 +29,11 @@ import { MapGridEntity, MapTokenEntity } from "./map-typings";
 import { useIsKeyPressed } from "./hooks/use-is-key-pressed";
 import { TextureLoader } from "three";
 import { ReactEventHandlers } from "react-use-gesture/dist/types";
-import { useFragment, useSubscription } from "relay-hooks";
+import { useFragment, useSubscription, useMutation } from "relay-hooks";
 import { buttonGroup, useControls, useCreateStore, LevaInputs } from "leva";
 import { levaPluginNoteReference } from "./leva-plugin/leva-plugin-note-reference";
 import { levaPluginTokenImage } from "./leva-plugin/leva-plugin-token-image";
+import { levaPluginConditions } from "./leva-plugin/leva-plugin-conditions";
 import { useMarkArea } from "./map-tools/player-map-tool";
 import { ContextMenuState, useShowContextMenu } from "./map-context-menu";
 import {
@@ -42,6 +43,7 @@ import {
 import { useResetState } from "./hooks/use-reset-state";
 import { mapView_MapFragment$key } from "./__generated__/mapView_MapFragment.graphql";
 import { mapView_TokenRendererMapTokenFragment$key } from "./__generated__/mapView_TokenRendererMapTokenFragment.graphql";
+import { mapView_TokenRendererMapTokenDataFragment$key } from "./__generated__/mapView_TokenRendererMapTokenDataFragment.graphql";
 import { mapView_TokenListRendererFragment$key } from "./__generated__/mapView_TokenListRendererFragment.graphql";
 import { mapView_MapViewRendererFragment$key } from "./__generated__/mapView_MapViewRendererFragment.graphql";
 import { mapView_MapRendererFragment$key } from "./__generated__/mapView_MapRendererFragment.graphql";
@@ -50,6 +52,10 @@ import { mapView_MapPingRenderer_MapFragment$key } from "./__generated__/mapView
 import { mapView_MapPingSubscription } from "./__generated__/mapView_MapPingSubscription.graphql";
 import { UpdateTokenContext } from "./update-token-context";
 import { IsDungeonMasterContext } from "./is-dungeon-master-context";
+import { upsertTokenDataMutation } from "./token-mutations";
+// [COMMENTED: Components will be created in Phase 1 frontend integration]
+import { TokenHealthBar } from "./dm-area/components/TokenHealthBar"; // [IMPORTED: Health Bar]
+import { TokenConditionIcon } from "./dm-area/components/TokenConditionIcon"; // [NEW IMPORT: Condition Icon]
 
 type Vector2D = [number, number];
 
@@ -62,6 +68,7 @@ enum LayerRenderOrder {
   tokenGesture = 5,
   marker = 6,
   outline = 7,
+  overlay = 8, // [UPDATED LAYER] For health bars and icons
 }
 
 // convert image relative to three.js
@@ -143,6 +150,7 @@ type TokenPartialChanges = Omit<Partial<MapTokenEntity>, "id">;
 
 const TokenListRendererFragment = graphql`
   fragment mapView_TokenListRendererFragment on Map {
+    id
     tokens {
       id
       ...mapView_TokenRendererMapTokenFragment
@@ -158,18 +166,36 @@ const TokenListRenderer = (props: {
 }) => {
   const map = useFragment(TokenListRendererFragment, props.map);
   return (
+    // Render token list
     <group renderOrder={LayerRenderOrder.token}>
-      {map.tokens.map((token) => (
+      {map.tokens?.map((token) => (
         <TokenRenderer
           id={token.id}
           key={token.id}
           token={token}
+          mapId={map.id}
           columnWidth={map.grid?.columnWidth ?? null}
         />
       ))}
     </group>
   );
 };
+
+// [UPDATED FRAGMENT] To fetch HP and Conditions
+const TokenDataFragment = graphql`
+  fragment mapView_TokenRendererMapTokenDataFragment on TokenData {
+    id
+    tokenId
+    mapId
+    currentHp
+    maxHp
+    tempHp
+    armorClass
+    conditions
+    ...TokenHealthBar_tokenData
+    ...TokenConditionIcon_tokenData
+  }
+`;
 
 const TokenRendererMapTokenFragment = graphql`
   fragment mapView_TokenRendererMapTokenFragment on MapToken {
@@ -189,17 +215,101 @@ const TokenRendererMapTokenFragment = graphql`
       url
     }
     referenceId
+    tokenData {
+      ...mapView_TokenRendererMapTokenDataFragment
+    }
   }
 `;
+
+// Type definition for TokenData fragment result
+type TokenDataType = {
+  readonly id: string;
+  readonly tokenId: string;
+  readonly mapId: string;
+  readonly currentHp?: number | null;
+  readonly maxHp?: number | null;
+  readonly tempHp: number;
+  readonly armorClass?: number | null;
+  readonly conditions?: readonly any[] | null;
+};
 
 const TokenRenderer = (props: {
   id: string;
   token: mapView_TokenRendererMapTokenFragment$key;
+  mapId: string;
   columnWidth: number | null;
 }) => {
   const token = useFragment(TokenRendererMapTokenFragment, props.token);
+  const tokenData = token.tokenData
+    ? (useFragment(TokenDataFragment, token.tokenData) as TokenDataType)
+    : null;
   const sharedMapState = React.useContext(SharedMapState);
   const updateToken = React.useContext(UpdateTokenContext);
+  const [mutate] = useMutation(upsertTokenDataMutation);
+
+  // Quick action handlers for damage/healing
+  const handleDamage = React.useCallback(
+    (amount: number) => {
+      const newHp = Math.max(0, (tokenData?.currentHp ?? 0) - amount);
+      mutate({
+        variables: {
+          input: {
+            tokenId: token.id,
+            mapId: props.mapId,
+            currentHp: newHp,
+            maxHp: tokenData?.maxHp ?? null,
+            tempHp: tokenData?.tempHp ?? 0,
+            armorClass: tokenData?.armorClass ?? null,
+            conditions: tokenData?.conditions ?? [],
+          },
+        },
+      });
+    },
+    [mutate, token.id, props.mapId, tokenData]
+  );
+
+  const handleHealing = React.useCallback(
+    (amount: number) => {
+      const maxHp = tokenData?.maxHp ?? 100;
+      const newHp = Math.min(maxHp, (tokenData?.currentHp ?? 0) + amount);
+      mutate({
+        variables: {
+          input: {
+            tokenId: token.id,
+            mapId: props.mapId,
+            currentHp: newHp,
+            maxHp: tokenData?.maxHp ?? null,
+            tempHp: tokenData?.tempHp ?? 0,
+            armorClass: tokenData?.armorClass ?? null,
+            conditions: tokenData?.conditions ?? [],
+          },
+        },
+      });
+    },
+    [mutate, token.id, props.mapId, tokenData]
+  );
+
+  // Store refs for button handlers
+  const damageHandlerRef = React.useRef(handleDamage);
+  const healingHandlerRef = React.useRef(handleHealing);
+
+  React.useEffect(() => {
+    damageHandlerRef.current = handleDamage;
+    healingHandlerRef.current = handleHealing;
+  }, [handleDamage, handleHealing]);
+
+  // Debug logging
+  React.useEffect(() => {
+    if (tokenData) {
+      console.log("[DEBUG] tokenData state:", {
+        id: tokenData.id,
+        currentHp: tokenData.currentHp,
+        conditions: tokenData.conditions,
+        hasConditionsField: "conditions" in tokenData,
+      });
+    }
+  }, [tokenData]);
+
   const pendingChangesRef = React.useRef<TokenPartialChanges>({});
   const enqueueSave = useStaticRef(() =>
     debounce(() => {
@@ -224,6 +334,26 @@ const TokenRenderer = (props: {
   const columnWidth = props.columnWidth ?? 150;
 
   const store = useCreateStore();
+
+  // Create refs to capture mapId and tokenId for use in button handlers
+  // Use props.id which is the tokenId, and props.mapId which is the mapId
+  const dataRef = React.useRef<{ tokenId: string; mapId: string }>({
+    tokenId: props.id,
+    mapId: props.mapId,
+  });
+
+  React.useEffect(() => {
+    console.log("[TokenRenderer] Updating dataRef with:", {
+      tokenId: props.id,
+      mapId: props.mapId,
+    });
+    dataRef.current = {
+      tokenId: props.id,
+      mapId: props.mapId,
+    };
+  }, [props.id, props.mapId]);
+
+  // Ref to track current token data
   const updateRadiusRef = React.useRef<null | ((radius: number) => void)>(null);
   const [values, setValues] = useControls(
     () => ({
@@ -438,6 +568,165 @@ const TokenRenderer = (props: {
         },
         transient: false,
       }),
+      // Combat Stats Section
+      "---combatStats": buttonGroup({
+        label: null,
+        opts: {
+          "-5 HP": () => damageHandlerRef.current?.(5),
+          "-1 HP": () => damageHandlerRef.current?.(1),
+          "+1 HP": () => healingHandlerRef.current?.(1),
+          "+5 HP": () => healingHandlerRef.current?.(5),
+        },
+      }),
+      currentHp: {
+        type: LevaInputs.NUMBER,
+        label: "Current HP",
+        value: tokenData?.currentHp ?? 0,
+        step: 1,
+        min: 0,
+        onChange: (value: number, _, { initial, fromPanel }) => {
+          if (initial || !fromPanel) {
+            return;
+          }
+        },
+        onEditEnd: (value: number) => {
+          // Allow mutations even if tokenData doesn't exist yet - backend will create it
+          const variables = {
+            input: {
+              tokenId: token.id,
+              mapId: props.mapId,
+              currentHp: value,
+              maxHp: tokenData?.maxHp ?? null,
+              tempHp: tokenData?.tempHp ?? 0,
+              armorClass: tokenData?.armorClass ?? null,
+              conditions: tokenData?.conditions ?? [],
+            },
+          };
+          console.log(
+            "[MUTATION DEBUG] currentHp - tokenData.conditions:",
+            tokenData?.conditions,
+            "Type:",
+            typeof tokenData?.conditions,
+            "isArray:",
+            Array.isArray(tokenData?.conditions)
+          );
+          console.log(
+            "[MUTATION DEBUG] currentHp mutation variables:",
+            variables
+          );
+          mutate({ variables });
+        },
+      },
+      maxHp: {
+        type: LevaInputs.NUMBER,
+        label: "Max HP",
+        value: tokenData?.maxHp ?? 0,
+        step: 1,
+        min: 1,
+        onChange: (value: number, _, { initial, fromPanel }) => {
+          if (initial || !fromPanel) {
+            return;
+          }
+        },
+        onEditEnd: (value: number) => {
+          // Allow mutations even if tokenData doesn't exist yet - backend will create it
+          mutate({
+            variables: {
+              input: {
+                tokenId: token.id,
+                mapId: props.mapId,
+                currentHp: tokenData?.currentHp ?? null,
+                maxHp: value,
+                tempHp: tokenData?.tempHp ?? 0,
+                armorClass: tokenData?.armorClass ?? null,
+                conditions: tokenData?.conditions ?? [],
+              },
+            },
+          });
+        },
+      },
+      tempHp: {
+        type: LevaInputs.NUMBER,
+        label: "Temp HP",
+        value: tokenData?.tempHp ?? 0,
+        step: 1,
+        min: 0,
+        onChange: (value: number, _, { initial, fromPanel }) => {
+          if (initial || !fromPanel) {
+            return;
+          }
+        },
+        onEditEnd: (value: number) => {
+          // Allow mutations even if tokenData doesn't exist yet - backend will create it
+          mutate({
+            variables: {
+              input: {
+                tokenId: token.id,
+                mapId: props.mapId,
+                currentHp: tokenData?.currentHp ?? null,
+                maxHp: tokenData?.maxHp ?? null,
+                tempHp: value,
+                armorClass: tokenData?.armorClass ?? null,
+                conditions: tokenData?.conditions ?? [],
+              },
+            },
+          });
+        },
+      },
+      armorClass: {
+        type: LevaInputs.NUMBER,
+        label: "AC",
+        value: tokenData?.armorClass ?? 10,
+        step: 1,
+        min: 1,
+        onChange: (value: number, _, { initial, fromPanel }) => {
+          if (initial || !fromPanel) {
+            return;
+          }
+        },
+        onEditEnd: (value: number) => {
+          // Allow mutations even if tokenData doesn't exist yet - backend will create it
+          mutate({
+            variables: {
+              input: {
+                tokenId: token.id,
+                mapId: props.mapId,
+                currentHp: tokenData?.currentHp ?? null,
+                maxHp: tokenData?.maxHp ?? null,
+                tempHp: tokenData?.tempHp ?? 0,
+                armorClass: value,
+                conditions: tokenData?.conditions ?? [],
+              },
+            },
+          });
+        },
+      },
+      conditions: levaPluginConditions({
+        value: (tokenData?.conditions ?? []) as string[],
+        onChange: (value: string[], _, { initial, fromPanel }) => {
+          if (initial || !fromPanel) {
+            return;
+          }
+          console.log(
+            "[MUTATION DEBUG] conditions onChange - selected conditions:",
+            value
+          );
+          mutate({
+            variables: {
+              input: {
+                tokenId: token.id,
+                mapId: props.mapId,
+                currentHp: tokenData?.currentHp ?? null,
+                maxHp: tokenData?.maxHp ?? null,
+                tempHp: tokenData?.tempHp ?? 0,
+                armorClass: tokenData?.armorClass ?? null,
+                conditions: value,
+              },
+            },
+          });
+        },
+        transient: false,
+      }),
     }),
     { store }
   );
@@ -459,6 +748,12 @@ const TokenRenderer = (props: {
       isVisibleForPlayers: token.isVisibleForPlayers,
       referenceId: token.referenceId,
       tokenImageId: token.tokenImage?.id ?? null,
+      // Update HP/AC/Conditions from tokenData
+      currentHp: tokenData?.currentHp ?? 0,
+      maxHp: tokenData?.maxHp ?? 0,
+      tempHp: tokenData?.tempHp ?? 0,
+      armorClass: tokenData?.armorClass ?? 10,
+      conditions: tokenData?.conditions ?? [],
     };
 
     if (editingStateRef.radius === 0) {
@@ -488,6 +783,9 @@ const TokenRenderer = (props: {
     token.referenceId,
     token.tokenImage?.id,
     token.rotation,
+    tokenData,
+    handleDamage,
+    handleHealing,
   ]);
 
   const initialRadius = useStaticRef(() =>
@@ -688,6 +986,12 @@ const TokenRenderer = (props: {
   const color =
     isHover && isMovable ? lighten(0.1, values.color) : values.color;
   const textLabel = values.text;
+
+  // [RE-ENABLED: tokenData logic for Phase 1 frontend integration]
+  const renderHealthBar = tokenData && tokenData.maxHp && tokenData.maxHp > 0;
+  const renderConditionIcons =
+    tokenData && tokenData.conditions && tokenData.conditions.length > 0;
+
   return (
     <>
       <animated.group
@@ -761,7 +1065,21 @@ const TokenRenderer = (props: {
             />
           </mesh>
         )}
+
+        {/* [MOVED INSIDE] Render Overlays (Health Bar & Conditions) - Now children of animated.group so they move with token */}
+        {renderHealthBar && tokenData ? (
+          <TokenHealthBar tokenData={tokenData} initialRadius={initialRadius} />
+        ) : null}
+
+        {renderConditionIcons && tokenData ? (
+          <TokenConditionIcon
+            tokenData={tokenData}
+            initialRadius={initialRadius}
+            healthBarPresent={!!renderHealthBar}
+          />
+        ) : null}
       </animated.group>
+
       {/* Text should not be scaled and thus must be moved to a separate group. */}
       {textLabel ? (
         <animated.group

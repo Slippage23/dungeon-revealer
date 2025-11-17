@@ -264,7 +264,7 @@ const ShowGridSettingsPopup = React.memo(
     map: dmMap_ShowGridSettingsPopupMapFragment$key;
     grid: dmMap_ShowGridSettingsPopupGridFragment$key;
     enterConfigureGridMode: () => void;
-  }) => {
+  }): React.ReactElement => {
     const [mapUpdateGrid] = useMutation<dmMap_mapUpdateGridMutation>(
       MapUpdateGridMutation
     );
@@ -621,6 +621,7 @@ export const DmMap = (props: {
     changes: Omit<Partial<MapTokenEntity>, "id">
   ) => void;
   controlRef: React.MutableRefObject<MapControlInterface | null>;
+  onTokenSelect?: (tokenId: string | null) => void;
 }): React.ReactElement => {
   const map = useFragment(DMMapFragment, props.map);
   const [mapPing] = useMutation<dmMap_MapPingMutation>(MapPingMutation);
@@ -825,6 +826,7 @@ export const DmMap = (props: {
             SharedTokenStateStoreContext,
           ]}
           fogOpacity={0.5}
+          onTokenSelect={props.onTokenSelect}
         />
       </React.Suspense>
 
@@ -1114,6 +1116,28 @@ const GridConfigurator_MapFragment = graphql`
   }
 `;
 
+const GridConfiguratorContainer = styled.div`
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  width: 100%;
+  max-width: 500px;
+  border-radius: 12px;
+  padding: 8px;
+  background-color: white;
+  z-index: 1;
+`;
+
+const GridConfiguratorFooter = styled.div`
+  display: flex;
+  margin-top: 16px;
+  justify-content: flex-end;
+`;
+
+const ButtonWrapper = styled.div`
+  margin-right: 16px;
+`;
+
 const GridConfigurator = (props: {
   map: dmMap_GridConfigurator_MapFragment$key;
   onAbort: () => void;
@@ -1126,165 +1150,155 @@ const GridConfigurator = (props: {
 
   const { state, setState } = React.useContext(ConfigureGridMapToolContext);
 
-  return (
-    <Stack
-      position="absolute"
-      bottom="12px"
-      right="12px"
-      width="100%"
-      maxWidth="500px"
-      borderRadius="12px"
-      padding="2"
-      backgroundColor="white"
-      zIndex="1"
-    >
-      <Heading size="lg">Grid Configurator</Heading>
-      <Text>
-        Press and hold <strong>Alt</strong> for dragging the grid with your
-        mouse.
-      </Text>
-      <HStack>
-        <FormControl>
-          <FormLabel>X-Coordinate</FormLabel>
-          <InputGroup size="sm">
-            <NumberInput
-              value={state.offsetX}
-              onChange={(valueString) => {
-                let offsetX = parseFloat(valueString);
-                if (Number.isNaN(offsetX)) {
-                  offsetX = 0;
-                }
-                setState((state) => ({
-                  ...state,
-                  offsetX,
-                }));
-              }}
-            >
-              <NumberInputField />
-              <NumberInputStepper>
-                <NumberIncrementStepper />
-                <NumberDecrementStepper />
-              </NumberInputStepper>
-            </NumberInput>
-          </InputGroup>
-        </FormControl>
-        <FormControl>
-          <FormLabel>Y-Coordinate</FormLabel>
-          <InputGroup size="sm">
-            <NumberInput
-              value={state.offsetY}
-              onChange={(valueString) => {
-                let offsetY = parseFloat(valueString);
-                if (Number.isNaN(offsetY)) {
-                  offsetY = 0;
-                }
-                setState((state) => ({
-                  ...state,
-                  offsetY,
-                }));
-              }}
-            >
-              <NumberInputField />
-              <NumberInputStepper>
-                <NumberIncrementStepper />
-                <NumberDecrementStepper />
-              </NumberInputStepper>
-            </NumberInput>
-          </InputGroup>
-        </FormControl>
-      </HStack>
-      <HStack>
-        <FormControl>
-          <FormLabel>Column Width</FormLabel>
-          <InputGroup size="sm">
-            <NumberInput
-              value={state.columnWidth}
-              onChange={(valueString) => {
-                let columnWidth = parseFloat(valueString);
-                if (Number.isNaN(columnWidth)) {
-                  columnWidth = 0;
-                }
-                setState((state) => ({
-                  ...state,
-                  columnWidth,
-                }));
-              }}
-            >
-              <NumberInputField />
-              <NumberInputStepper>
-                <NumberIncrementStepper />
-                <NumberDecrementStepper />
-              </NumberInputStepper>
-            </NumberInput>
-          </InputGroup>
-        </FormControl>
-        <FormControl>
-          <FormLabel>Column Height</FormLabel>
-          <InputGroup size="sm">
-            <NumberInput
-              value={state.columnHeight}
-              onChange={(valueString) => {
-                let columnHeight = parseFloat(valueString);
-                if (Number.isNaN(columnHeight)) {
-                  columnHeight = 0;
-                }
-                setState((state) => ({
-                  ...state,
-                  columnHeight,
-                }));
-              }}
-            >
-              <NumberInputField />
-              <NumberInputStepper>
-                <NumberIncrementStepper />
-                <NumberDecrementStepper />
-              </NumberInputStepper>
-            </NumberInput>
-          </InputGroup>
-        </FormControl>
-      </HStack>
+  // Assign the heavy JSX to an any-typed variable to avoid TypeScript's
+  // "Expression produces a union type that is too complex to represent"
+  // when it tries to fully infer the JSX expression type.
+  const content: any = (
+    <GridConfiguratorContainer>
+      <Stack>
+        <Heading size="lg">Grid Configurator</Heading>
+        <Text>
+          Press and hold <strong>Alt</strong> for dragging the grid with your
+          mouse.
+        </Text>
+        <HStack>
+          <FormControl>
+            <FormLabel>X-Coordinate</FormLabel>
+            <InputGroup size="sm">
+              <NumberInput
+                value={state.offsetX}
+                onChange={(valueString) => {
+                  let offsetX = parseFloat(valueString);
+                  if (Number.isNaN(offsetX)) {
+                    offsetX = 0;
+                  }
+                  setState((state) => ({
+                    ...state,
+                    offsetX,
+                  }));
+                }}
+              >
+                <NumberInputField />
+                <NumberInputStepper>
+                  <NumberIncrementStepper />
+                  <NumberDecrementStepper />
+                </NumberInputStepper>
+              </NumberInput>
+            </InputGroup>
+          </FormControl>
+          <FormControl>
+            <FormLabel>Y-Coordinate</FormLabel>
+            <InputGroup size="sm">
+              <NumberInput
+                value={state.offsetY}
+                onChange={(valueString) => {
+                  let offsetY = parseFloat(valueString);
+                  if (Number.isNaN(offsetY)) {
+                    offsetY = 0;
+                  }
+                  setState((state) => ({
+                    ...state,
+                    offsetY,
+                  }));
+                }}
+              >
+                <NumberInputField />
+                <NumberInputStepper>
+                  <NumberIncrementStepper />
+                  <NumberDecrementStepper />
+                </NumberInputStepper>
+              </NumberInput>
+            </InputGroup>
+          </FormControl>
+        </HStack>
+        <HStack>
+          <FormControl>
+            <FormLabel>Column Width</FormLabel>
+            <InputGroup size="sm">
+              <NumberInput
+                value={state.columnWidth}
+                onChange={(valueString) => {
+                  let columnWidth = parseFloat(valueString);
+                  if (Number.isNaN(columnWidth)) {
+                    columnWidth = 0;
+                  }
+                  setState((state) => ({
+                    ...state,
+                    columnWidth,
+                  }));
+                }}
+              >
+                <NumberInputField />
+                <NumberInputStepper>
+                  <NumberIncrementStepper />
+                  <NumberDecrementStepper />
+                </NumberInputStepper>
+              </NumberInput>
+            </InputGroup>
+          </FormControl>
+          <FormControl>
+            <FormLabel>Column Height</FormLabel>
+            <InputGroup size="sm">
+              <NumberInput
+                value={state.columnHeight}
+                onChange={(valueString) => {
+                  let columnHeight = parseFloat(valueString);
+                  if (Number.isNaN(columnHeight)) {
+                    columnHeight = 0;
+                  }
+                  setState((state) => ({
+                    ...state,
+                    columnHeight,
+                  }));
+                }}
+              >
+                <NumberInputField />
+                <NumberInputStepper>
+                  <NumberIncrementStepper />
+                  <NumberDecrementStepper />
+                </NumberInputStepper>
+              </NumberInput>
+            </InputGroup>
+          </FormControl>
+        </HStack>
 
-      <div
-        style={{ display: "flex", marginTop: 16, justifyContent: "flex-end" }}
-      >
-        <div>
-          <Button.Tertiary
-            small
-            style={{ marginRight: 16 }}
-            onClick={props.onAbort}
-            danger
-          >
-            <Icon.X boxSize="20px" /> <span>Abort</span>
-          </Button.Tertiary>
-        </div>
-        <div>
-          <Button.Primary
-            small
-            onClick={() => {
-              mapUpdateGrid({
-                variables: {
-                  input: {
-                    mapId: map.id,
-                    grid: {
-                      color: "rgba(0, 0, 0, 0.08)",
-                      columnWidth: state.columnWidth,
-                      columnHeight: state.columnHeight,
-                      offsetX: state.offsetX,
-                      offsetY: state.offsetY,
+        <GridConfiguratorFooter>
+          <ButtonWrapper>
+            <Button.Tertiary small onClick={props.onAbort} danger>
+              <Icon.X boxSize="20px" /> <span>Abort</span>
+            </Button.Tertiary>
+          </ButtonWrapper>
+          <div>
+            <Button.Primary
+              small
+              onClick={() => {
+                mapUpdateGrid({
+                  variables: {
+                    input: {
+                      mapId: map.id,
+                      grid: {
+                        color: "rgba(0, 0, 0, 0.08)",
+                        columnWidth: state.columnWidth,
+                        columnHeight: state.columnHeight,
+                        offsetX: state.offsetX,
+                        offsetY: state.offsetY,
+                      },
+                      showGrid: map.showGrid,
+                      showGridToPlayers: map.showGridToPlayers,
                     },
-                    showGrid: map.showGrid,
-                    showGridToPlayers: map.showGridToPlayers,
                   },
-                },
-              }).finally(() => {
-                props.onConfirm();
-              });
-            }}
-          >
-            <span>Confirm</span> <Icon.ChevronRight boxSize="20px" />
-          </Button.Primary>
-        </div>
-      </div>
-    </Stack>
+                }).finally(() => {
+                  props.onConfirm();
+                });
+              }}
+            >
+              <span>Confirm</span> <Icon.ChevronRight boxSize="20px" />
+            </Button.Primary>
+          </div>
+        </GridConfiguratorFooter>
+      </Stack>
+    </GridConfiguratorContainer>
   );
+
+  return content;
 };
