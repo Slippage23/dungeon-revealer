@@ -197,7 +197,11 @@ export const TokenStatsPanel: React.FC<TokenStatsPanelProps> = ({
       setSpeed(data.tokenData.speed);
       setInitiativeModifier(data.tokenData.initiativeModifier || 0);
       setNotes(data.tokenData.notes || "");
-      setCachedConditions(data.tokenData.conditions || []);
+      // Convert server conditions (lowercase) to uppercase for UI consistency
+      const uppercaseConditions = (data.tokenData.conditions || []).map(
+        (c: string) => c.toUpperCase()
+      );
+      setCachedConditions(uppercaseConditions);
     }
   }, [data?.tokenData]);
 
@@ -280,11 +284,11 @@ export const TokenStatsPanel: React.FC<TokenStatsPanelProps> = ({
 
   // Toggle condition
   const handleToggleCondition = (condition: string) => {
-    // Update cached conditions immediately for UI feedback
-    const normalizedCondition = condition.toLowerCase();
-    const newConditions = cachedConditions.includes(normalizedCondition)
-      ? cachedConditions.filter((c) => c !== normalizedCondition)
-      : [...cachedConditions, normalizedCondition];
+    // Keep condition in UPPERCASE for GraphQL mutation
+    // (Server will convert to lowercase for storage)
+    const newConditions = cachedConditions.includes(condition)
+      ? cachedConditions.filter((c) => c !== condition)
+      : [...cachedConditions, condition];
     setCachedConditions(newConditions);
 
     toggleCondition({
