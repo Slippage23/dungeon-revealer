@@ -48,6 +48,9 @@ import * as NotesModule from "./modules/notes";
 import * as TokenImageModule from "./modules/token-image";
 import * as TokenDataModule from "./modules/token-data";
 import * as MapModule from "./modules/map";
+import * as NoteTemplateModule from "./modules/note-template";
+import * as NoteCategoryModule from "./modules/note-category";
+import * as NoteBacklinkModule from "./modules/note-backlink";
 import { pipe } from "fp-ts/lib/function";
 import * as E from "fp-ts/lib/Either";
 import * as RT from "fp-ts/lib/ReaderTask";
@@ -89,6 +92,9 @@ const Query = t.queryType({
     ...TokenImageModule.queryFields,
     ...TokenDataModule.queryFields,
     ...MapModule.queryFields,
+    ...NoteTemplateModule.queryFields,
+    ...NoteCategoryModule.queryFields,
+    ...NoteBacklinkModule.queryFields,
     nodeField,
   ],
 });
@@ -101,6 +107,9 @@ const Subscription = t.subscriptionType({
     ...TokenImageModule.subscriptionsFields,
     ...TokenDataModule.subscriptionFields,
     ...MapModule.subscriptionFields,
+    ...NoteTemplateModule.subscriptionFields,
+    ...NoteCategoryModule.subscriptionFields,
+    ...NoteBacklinkModule.subscriptionFields,
   ],
 });
 
@@ -112,6 +121,9 @@ const Mutation = t.mutationType({
     ...TokenImageModule.mutationFields,
     ...TokenDataModule.mutationFields,
     ...MapModule.mutationFields,
+    ...NoteTemplateModule.mutationFields,
+    ...NoteCategoryModule.mutationFields,
+    ...NoteBacklinkModule.mutationFields,
   ],
 });
 
