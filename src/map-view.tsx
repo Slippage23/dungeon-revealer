@@ -33,6 +33,7 @@ import { useFragment, useSubscription, useMutation } from "relay-hooks";
 import { buttonGroup, useControls, useCreateStore, LevaInputs } from "leva";
 import { levaPluginNoteReference } from "./leva-plugin/leva-plugin-note-reference";
 import { levaPluginTokenImage } from "./leva-plugin/leva-plugin-token-image";
+import { levaPluginConditions } from "./leva-plugin/leva-plugin-conditions";
 import { useMarkArea } from "./map-tools/player-map-tool";
 import { ContextMenuState, useShowContextMenu } from "./map-context-menu";
 import {
@@ -288,14 +289,7 @@ const TokenRenderer = (props: {
     };
   }, [props.id, props.mapId]);
 
-  // Ref to track current combat stat values from Leva controls
-  const combatStatsRef = React.useRef({
-    currentHp: tokenData?.currentHp ?? 0,
-    maxHp: tokenData?.maxHp ?? 0,
-    tempHp: tokenData?.tempHp ?? 0,
-    armorClass: tokenData?.armorClass ?? 10,
-    condition: tokenData?.conditions?.[0] ?? "None",
-  });
+  // Ref to track current token data
   const updateRadiusRef = React.useRef<null | ((radius: number) => void)>(null);
   const [values, setValues] = useControls(
     () => ({
@@ -522,7 +516,6 @@ const TokenRenderer = (props: {
           if (initial || !fromPanel) {
             return;
           }
-          combatStatsRef.current.currentHp = value;
         },
         onEditEnd: (value: number) => {
           // Allow mutations even if tokenData doesn't exist yet - backend will create it
@@ -535,6 +528,7 @@ const TokenRenderer = (props: {
                 maxHp: tokenData?.maxHp ?? null,
                 tempHp: tokenData?.tempHp ?? 0,
                 armorClass: tokenData?.armorClass ?? null,
+                conditions: tokenData?.conditions ?? [],
               },
             },
           });
@@ -550,7 +544,6 @@ const TokenRenderer = (props: {
           if (initial || !fromPanel) {
             return;
           }
-          combatStatsRef.current.maxHp = value;
         },
         onEditEnd: (value: number) => {
           // Allow mutations even if tokenData doesn't exist yet - backend will create it
@@ -563,6 +556,7 @@ const TokenRenderer = (props: {
                 maxHp: value,
                 tempHp: tokenData?.tempHp ?? 0,
                 armorClass: tokenData?.armorClass ?? null,
+                conditions: tokenData?.conditions ?? [],
               },
             },
           });
@@ -578,7 +572,6 @@ const TokenRenderer = (props: {
           if (initial || !fromPanel) {
             return;
           }
-          combatStatsRef.current.tempHp = value;
         },
         onEditEnd: (value: number) => {
           // Allow mutations even if tokenData doesn't exist yet - backend will create it
@@ -591,6 +584,7 @@ const TokenRenderer = (props: {
                 maxHp: tokenData?.maxHp ?? null,
                 tempHp: value,
                 armorClass: tokenData?.armorClass ?? null,
+                conditions: tokenData?.conditions ?? [],
               },
             },
           });
@@ -606,7 +600,6 @@ const TokenRenderer = (props: {
           if (initial || !fromPanel) {
             return;
           }
-          combatStatsRef.current.armorClass = value;
         },
         onEditEnd: (value: number) => {
           // Allow mutations even if tokenData doesn't exist yet - backend will create it
@@ -619,40 +612,20 @@ const TokenRenderer = (props: {
                 maxHp: tokenData?.maxHp ?? null,
                 tempHp: tokenData?.tempHp ?? 0,
                 armorClass: value,
+                conditions: tokenData?.conditions ?? [],
               },
             },
           });
         },
       },
-      condition: {
-        type: LevaInputs.SELECT,
-        label: "Condition",
-        options: [
-          "None",
-          "BLINDED",
-          "CHARMED",
-          "DEAFENED",
-          "EXHAUSTED",
-          "FRIGHTENED",
-          "GRAPPLED",
-          "INCAPACITATED",
-          "INVISIBLE",
-          "PARALYZED",
-          "PETRIFIED",
-          "POISONED",
-          "PRONE",
-          "RESTRAINED",
-          "STUNNED",
-          "UNCONSCIOUS",
-        ],
-        value: tokenData?.conditions?.[0] ?? "None",
-        onChange: (condition: string, _, { initial, fromPanel }) => {
+      conditions: levaPluginConditions({
+        value: (tokenData?.conditions ?? []) as string[],
+        onChange: (conditions: string[], _, { initial, fromPanel }) => {
           if (initial || !fromPanel) {
             return;
           }
-          combatStatsRef.current.condition = condition;
         },
-        onEditEnd: (condition: string) => {
+        onEditEnd: (conditions: string[]) => {
           // Allow mutations even if tokenData doesn't exist yet - backend will create it
           mutate({
             variables: {
@@ -663,47 +636,10 @@ const TokenRenderer = (props: {
                 maxHp: tokenData?.maxHp ?? null,
                 tempHp: tokenData?.tempHp ?? 0,
                 armorClass: tokenData?.armorClass ?? null,
-                conditions: condition === "None" ? [] : [condition],
+                conditions: conditions,
               },
             },
           });
-        },
-      },
-      "---applyButton": buttonGroup({
-        label: null,
-        opts: {
-          "Apply Changes": () => {
-            console.log("[TokenRenderer] Apply Changes clicked");
-            // Access values from the ref that's updated by onChange handlers
-            const currentHp = combatStatsRef.current.currentHp;
-            const maxHp = combatStatsRef.current.maxHp;
-            const tempHp = combatStatsRef.current.tempHp;
-            const armorClass = combatStatsRef.current.armorClass;
-            const condition = combatStatsRef.current.condition;
-            console.log("Current combat stats from ref:", {
-              currentHp,
-              maxHp,
-              tempHp,
-              armorClass,
-              condition,
-              tokenId: dataRef.current.tokenId,
-              mapId: dataRef.current.mapId,
-            });
-            // Fire the mutation with current values from the ref
-            mutate({
-              variables: {
-                input: {
-                  tokenId: dataRef.current.tokenId,
-                  mapId: dataRef.current.mapId,
-                  currentHp: currentHp ?? null,
-                  maxHp: maxHp ?? null,
-                  tempHp: tempHp ?? 0,
-                  armorClass: armorClass ?? null,
-                  conditions: condition === "None" ? [] : [condition],
-                },
-              },
-            });
-          },
         },
       }),
     }),
