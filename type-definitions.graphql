@@ -184,6 +184,21 @@ type Query {
   Get a map by id.
   """
   map(id: ID!): Map
+  noteTemplates(mapId: String!): [NoteTemplate!]!
+  noteTemplate(id: String!): NoteTemplate
+  noteCategoryTree(mapId: String!): [NoteCategoryNode!]!
+  noteCategories(mapId: String!): [NoteCategory!]!
+  noteCategory(id: String!): NoteCategory
+
+  """
+  Get all notes linking TO this note (incoming links)
+  """
+  backlinksTo(noteId: String!): [NoteBacklink!]!
+
+  """
+  Get all notes this note links FROM (outgoing links)
+  """
+  backlinksFrom(noteId: String!): [NoteBacklink!]!
   node(id: ID!): Node
 }
 
@@ -285,8 +300,8 @@ Extended data for a token (HP, conditions, stats)
 """
 type TokenData {
   id: ID!
-  tokenId: String!
-  mapId: String!
+  tokenId: String
+  mapId: String
   currentHp: Int
   maxHp: Int
   tempHp: Int!
@@ -432,6 +447,54 @@ type MapToken {
   tokenData: TokenData
 }
 
+"""
+A template for creating standardized notes
+"""
+type NoteTemplate {
+  id: ID!
+  name: String!
+  category: String!
+  description: String
+  schema: String!
+  isDefault: Boolean!
+  createdAt: Int!
+}
+
+"""
+A hierarchical category node with child categories
+"""
+type NoteCategoryNode {
+  id: ID!
+  name: String!
+  parentId: String
+  displayOrder: Int
+  noteCount: Int
+  children: [NoteCategoryNode!]!
+}
+
+"""
+A category for organizing notes
+"""
+type NoteCategory {
+  id: ID!
+  mapId: String!
+  name: String!
+  parentId: String
+  displayOrder: Int
+  createdAt: Int!
+}
+
+"""
+A link from one note to another (via @mention)
+"""
+type NoteBacklink {
+  id: String!
+  fromNoteId: String!
+  toNoteId: String!
+  linkText: String
+  createdAt: Int!
+}
+
 type Mutation {
   logIn(input: LogInInput): LogInResult!
   changeName(input: ChangeNameInput!): ChangeNameResult!
@@ -533,6 +596,13 @@ type Mutation {
   Ping a point on the map.
   """
   mapPing(input: MapPingInput!): Boolean
+  createNoteTemplate(input: NoteTemplateCreateInput!): NoteTemplateCreateResult!
+  deleteNoteTemplate(input: NoteTemplateDeleteInput!): NoteTemplateDeleteResult!
+  createNoteCategory(input: NoteCategoryCreateInput!): NoteCategoryCreateResult!
+  updateNoteCategory(input: NoteCategoryUpdateInput!): NoteCategoryUpdateResult!
+  deleteNoteCategory(input: NoteCategoryDeleteInput!): NoteCategoryDeleteResult!
+  createNoteBacklink(input: NoteBacklinkCreateInput!): NoteBacklinkCreateResult!
+  deleteNoteBacklink(input: NoteBacklinkDeleteInput!): NoteBacklinkDeleteResult!
 }
 
 type LogInResult {
@@ -879,6 +949,76 @@ input MapPingInput {
   mapId: ID!
   x: Float!
   y: Float!
+}
+
+type NoteTemplateCreateResult {
+  template: NoteTemplate!
+}
+
+input NoteTemplateCreateInput {
+  mapId: String
+  name: String!
+  category: String!
+  description: String
+  schema: String!
+  isDefault: Boolean
+}
+
+type NoteTemplateDeleteResult {
+  success: Boolean!
+}
+
+input NoteTemplateDeleteInput {
+  templateId: String!
+}
+
+type NoteCategoryCreateResult {
+  category: NoteCategory!
+}
+
+input NoteCategoryCreateInput {
+  mapId: String!
+  name: String!
+  parentId: String
+  displayOrder: Int
+}
+
+type NoteCategoryUpdateResult {
+  category: NoteCategory!
+}
+
+input NoteCategoryUpdateInput {
+  id: String!
+  name: String
+  parentId: String
+  displayOrder: Int
+}
+
+type NoteCategoryDeleteResult {
+  success: Boolean!
+}
+
+input NoteCategoryDeleteInput {
+  id: String!
+}
+
+type NoteBacklinkCreateResult {
+  backlink: NoteBacklink!
+}
+
+input NoteBacklinkCreateInput {
+  fromNoteId: String!
+  toNoteId: String!
+  linkText: String
+}
+
+type NoteBacklinkDeleteResult {
+  success: Boolean!
+}
+
+input NoteBacklinkDeleteInput {
+  fromNoteId: String!
+  toNoteId: String!
 }
 
 type Subscription {
