@@ -15,6 +15,7 @@ import {
 } from "@chakra-ui/react";
 import { useNoteWindows, useNoteWindowActions } from ".";
 import { NoteEditorActiveItem } from "../note-editor/note-editor-active-item";
+import { EnhancedNoteEditorSidebar } from "../note-editor/enhanced-note-editor-sidebar";
 import { useQuery, useMutation, useFragment } from "relay-hooks";
 import type {
   tokenInfoAside_nodeQuery,
@@ -544,6 +545,8 @@ const WindowRenderer = (props: {
                 activeNoteId={props.noteId}
               />
             </Flex>
+          ) : node ? (
+            <EnhancedNoteEditorSidebar currentNoteId={node.id} />
           ) : null
         }
       />

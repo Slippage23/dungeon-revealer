@@ -20,8 +20,8 @@ import {
   HStack,
   Text,
 } from "@chakra-ui/react";
-import * as Icon from "../../../feather-icons";
-import { useCreateNoteTemplate } from "./use-note-templates";
+import * as Icon from "../../feather-icons";
+import { useCreateNoteTemplate } from "./hooks/use-note-templates";
 
 export interface TemplateField {
   id: string;

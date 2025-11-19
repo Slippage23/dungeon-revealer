@@ -23,6 +23,7 @@ import { Socket } from "socket.io-client";
 import { MapTokenEntity } from "../map-typings";
 import { isFileDrag } from "../hooks/use-drop-zone";
 import { useNoteWindowActions } from "./token-info-aside";
+import { MapIdProvider } from "./note-editor/map-context";
 import { MapControlInterface } from "../map-view";
 import { useTokenImageUpload } from "./token-image-upload";
 import { TokenStatsPanel } from "./token-stats-panel";
@@ -508,6 +509,22 @@ const Content = ({
   );
 };
 
+const ContentWithMapIdProvider = ({
+  socket,
+  password,
+}: {
+  socket: Socket;
+  password: string;
+}): React.ReactElement => {
+  const [loadedMapId] = useLoadedMapId();
+
+  return (
+    <MapIdProvider mapId={loadedMapId}>
+      <Content socket={socket} password={password} />
+    </MapIdProvider>
+  );
+};
+
 const DmAreaRenderer = ({
   password,
 }: {
@@ -523,7 +540,7 @@ const DmAreaRenderer = ({
         isMapOnly={false}
         role="DM"
       >
-        <Content socket={socket} password={password} />
+        <ContentWithMapIdProvider socket={socket} password={password} />
       </AuthenticatedAppShell>
     </AccessTokenProvider>
   );

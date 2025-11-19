@@ -3,9 +3,10 @@ import { Box, Tabs, TabList, Tab, TabPanels, TabPanel } from "@chakra-ui/react";
 import { NoteTemplatesPanel } from "./note-templates-panel";
 import { NoteCategoriesPanel } from "./note-categories-panel";
 import { NoteBacklinksPanel } from "./note-backlinks-panel";
+import { useCurrentMapId } from "./map-context";
 
 interface EnhancedNoteEditorSidebarProps {
-  mapId: string;
+  mapId?: string;
   currentNoteId?: string;
   onTemplateApply?: (templateId: string) => void;
   onCategorySelect?: (categoryId: string) => void;
@@ -17,12 +18,21 @@ interface EnhancedNoteEditorSidebarProps {
  */
 export const EnhancedNoteEditorSidebar: React.FC<EnhancedNoteEditorSidebarProps> =
   ({
-    mapId,
+    mapId: propMapId,
     currentNoteId,
     onTemplateApply,
     onCategorySelect,
     onLinkedNoteClick,
   }) => {
+    // Use provided mapId or fallback to context
+    const contextMapId = useCurrentMapId();
+    const mapId = propMapId || contextMapId;
+
+    // Cannot render without mapId
+    if (!mapId) {
+      return <Box p={2}>Loading...</Box>;
+    }
+
     return (
       <Box h="full" overflowY="auto" borderLeftWidth="1px" bg="gray.50">
         <Tabs as={Box} orientation="vertical" size="sm" defaultIndex={0}>
