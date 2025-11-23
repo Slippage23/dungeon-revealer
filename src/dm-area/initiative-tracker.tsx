@@ -358,7 +358,7 @@ export const InitiativeTracker: React.FC<InitiativeTrackerProps> = ({
                 <Button
                   colorScheme="green"
                   size="sm"
-                  leftIcon={<Icon.Play boxSize="16px" />}
+                  leftIcon={<Icon.Dice boxSize="16px" />}
                   onClick={handleStartCombat}
                   flex={1}
                 >
@@ -401,10 +401,7 @@ export const InitiativeTracker: React.FC<InitiativeTrackerProps> = ({
             ) : (
               <List spacing={0}>
                 {initiatives.map((entry) => (
-                  <InitiativeListItem
-                    key={entry.id}
-                    isActive={entry.isActive}
-                  >
+                  <InitiativeListItem key={entry.id} isActive={entry.isActive}>
                     {editingTokenId === entry.tokenId ? (
                       // Edit Mode
                       <Flex gap={2} align="center">

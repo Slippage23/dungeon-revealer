@@ -108,7 +108,7 @@ const CategoryNode: React.FC<CategoryNodeProps> = ({
             />
           ) : (
             <HStack spacing={2}>
-              <Icon.Folder size={16} />
+              <Icon.Inbox size={16} />
               <Text fontSize="sm" fontWeight="medium">
                 {category.name}
               </Text>
@@ -129,7 +129,7 @@ const CategoryNode: React.FC<CategoryNodeProps> = ({
             setIsEditing(true);
           }}
         >
-          <Icon.Edit2 size={12} />
+          <Icon.Edit size={12} />
         </Button>
         <Button
           size="xs"

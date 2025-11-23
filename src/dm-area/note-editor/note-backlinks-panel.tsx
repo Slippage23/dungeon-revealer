@@ -83,7 +83,7 @@ export const NoteBacklinksPanel: React.FC<NoteBacklinksPanelProps> = ({
         <>
           <Box>
             <HStack spacing={2} mb={3}>
-              <Icon.ArrowRight size={16} />
+              <Icon.ChevronRight size={16} />
               <Text fontWeight="bold" fontSize="sm">
                 Incoming Links ({backlinksTo.length})
               </Text>
@@ -117,7 +117,7 @@ export const NoteBacklinksPanel: React.FC<NoteBacklinksPanelProps> = ({
       {backlinksFrom.length > 0 && (
         <Box>
           <HStack spacing={2} mb={3}>
-            <Icon.ArrowLeft size={16} />
+            <Icon.ChevronLeft size={16} />
             <Text fontWeight="bold" fontSize="sm">
               Outgoing Links ({backlinksFrom.length})
             </Text>
