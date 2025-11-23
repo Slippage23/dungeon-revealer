@@ -22,26 +22,32 @@ export const useApplyTemplate = () => {
   const [mutate] = useMutation<useApplyTemplateMutation>(ApplyTemplateMutation);
 
   const applyTemplate = useCallback(
-    (noteId: string, template: NoteTemplate) => {
+    (noteId: string, template: NoteTemplate, currentContent: string = "") => {
       return new Promise<void>((resolve, reject) => {
         // Create template content - could be markdown or JSON
         // For now, create a simple markdown structure based on the schema
-        let content = `# ${template.name}\n\n`;
+        let templateContent = `# ${template.name}\n\n`;
 
         try {
           const schema = JSON.parse(template.schema);
           if (schema.fields && Array.isArray(schema.fields)) {
             schema.fields.forEach((field: string) => {
-              content += `## ${field}\n\n`;
+              templateContent += `## ${field}\n\n`;
             });
           }
         } catch (e) {
           // If schema isn't valid JSON, just use the template name
         }
 
+        // Append template to existing content (with separator if content exists)
+        const separator = currentContent.trim() ? "\n\n---\n\n" : "";
+        const content = currentContent + separator + templateContent;
+
         console.log("[USE-APPLY-TEMPLATE] Sending mutation with:", {
           noteId,
-          content,
+          currentContentLength: currentContent.length,
+          templateContentLength: templateContent.length,
+          totalContentLength: content.length,
         });
 
         mutate({

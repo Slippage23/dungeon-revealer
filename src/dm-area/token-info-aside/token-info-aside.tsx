@@ -600,12 +600,14 @@ const WindowRenderer = (props: {
                       "[TOKEN-INFO-ASIDE] Applying template:",
                       template.name
                     );
-                    applyTemplate(node.id, template).catch((err) => {
-                      console.error(
-                        "[TOKEN-INFO-ASIDE] Error applying template:",
-                        err
-                      );
-                    });
+                    applyTemplate(node.id, template, node.content).catch(
+                      (err) => {
+                        console.error(
+                          "[TOKEN-INFO-ASIDE] Error applying template:",
+                          err
+                        );
+                      }
+                    );
                   }}
                 />
               </>
