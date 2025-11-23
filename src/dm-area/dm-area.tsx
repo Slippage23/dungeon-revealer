@@ -27,6 +27,7 @@ import { MapIdProvider } from "./note-editor/map-context";
 import { MapControlInterface } from "../map-view";
 import { useTokenImageUpload } from "./token-image-upload";
 import { TokenStatsPanel } from "./token-stats-panel";
+import { InitiativeTracker } from "./initiative-tracker";
 import { dmAreaTokenAddManyMutation } from "./__generated__/dmAreaTokenAddManyMutation.graphql";
 import { dmArea_MapQuery } from "./__generated__/dmArea_MapQuery.graphql";
 
@@ -126,6 +127,8 @@ const Content = ({
   const [selectedTokenId, setSelectedTokenId] = React.useState<string | null>(
     null
   );
+  const [showInitiativeTracker, setShowInitiativeTracker] =
+    React.useState(false);
 
   const dmAreaResponse = useQuery<dmArea_MapQuery>(
     DmArea_MapQuery,
@@ -488,6 +491,7 @@ const Content = ({
               }}
               updateToken={updateToken}
               onTokenSelect={setSelectedTokenId}
+              onShowInitiativeTracker={() => setShowInitiativeTracker(true)}
             />
           </div>
         </LoadedMapDiv>
@@ -503,6 +507,12 @@ const Content = ({
           tokenId={selectedTokenId}
           mapId={loadedMapId}
           onClose={() => setSelectedTokenId(null)}
+        />
+      ) : null}
+      {showInitiativeTracker && loadedMapId ? (
+        <InitiativeTracker
+          mapId={loadedMapId}
+          onClose={() => setShowInitiativeTracker(false)}
         />
       ) : null}
     </FetchContext.Provider>

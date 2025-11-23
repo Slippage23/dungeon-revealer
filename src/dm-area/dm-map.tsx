@@ -626,6 +626,7 @@ export const DmMap = (props: {
   ) => void;
   controlRef: React.MutableRefObject<MapControlInterface | null>;
   onTokenSelect?: (tokenId: string | null) => void;
+  onShowInitiativeTracker?: () => void;
 }): React.ReactElement => {
   const map = useFragment(DMMapFragment, props.map);
   const [mapPing] = useMutation<dmMap_MapPingMutation>(MapPingMutation);
@@ -954,6 +955,16 @@ export const DmMap = (props: {
                   >
                     <Icon.BookOpen boxSize="20px" />
                     <Icon.Label>Notes</Icon.Label>
+                  </Toolbar.Button>
+                </Toolbar.Item>
+                <Toolbar.Item isActive>
+                  <Toolbar.Button
+                    onClick={() => {
+                      props.onShowInitiativeTracker?.();
+                    }}
+                  >
+                    <Icon.Dice boxSize="20px" />
+                    <Icon.Label>Initiative</Icon.Label>
                   </Toolbar.Button>
                 </Toolbar.Item>
               </Toolbar.Group>

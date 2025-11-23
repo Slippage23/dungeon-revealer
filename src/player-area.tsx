@@ -30,6 +30,7 @@ import { playerArea_PlayerMap_ActiveMapQuery } from "./__generated__/playerArea_
 import { playerArea_MapPingMutation } from "./__generated__/playerArea_MapPingMutation.graphql";
 import { UpdateTokenContext } from "./update-token-context";
 import { LazyLoadedMapView } from "./lazy-loaded-map-view";
+import { InitiativeTrackerView } from "./dm-area/initiative-tracker-view";
 
 const ToolbarContainer = styled(animated.div)`
   position: absolute;
@@ -92,6 +93,8 @@ const PlayerMap = ({
 
   const controlRef = React.useRef<MapControlInterface | null>(null);
   const [markedAreas, setMarkedAreas] = React.useState<MarkedArea[]>(() => []);
+  const [showInitiativeTracker, setShowInitiativeTracker] =
+    React.useState(false);
 
   React.useEffect(() => {
     const contextmenuListener = (ev: Event) => {
@@ -327,6 +330,16 @@ const PlayerMap = ({
                           <Icon.Label>Notes</Icon.Label>
                         </Toolbar.LongPressButton>
                       </Toolbar.Item>
+                      <Toolbar.Item isActive>
+                        <Toolbar.Button
+                          onClick={() => {
+                            setShowInitiativeTracker(true);
+                          }}
+                        >
+                          <Icon.Dice boxSize="20px" />
+                          <Icon.Label>Initiative</Icon.Label>
+                        </Toolbar.Button>
+                      </Toolbar.Item>
                     </Toolbar.Group>
                   </React.Fragment>
                 ) : null}
@@ -339,6 +352,12 @@ const PlayerMap = ({
           <SplashScreen text="Ready." />
         </AbsoluteFullscreenContainer>
       )}
+      {showInitiativeTracker && mapId ? (
+        <InitiativeTrackerView
+          mapId={mapId}
+          onClose={() => setShowInitiativeTracker(false)}
+        />
+      ) : null}
     </>
   );
 };

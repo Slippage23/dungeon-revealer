@@ -168,7 +168,7 @@ export const InitiativeTracker: React.FC<InitiativeTrackerProps> = ({
     null
   );
 
-  const combatState = data?.combatState;
+  const combatState = (data as any)?.combatState;
   const initiatives = combatState?.initiatives || [];
   const isInCombat = combatState?.isActive || false;
   const currentRound = combatState?.currentRound || 1;
@@ -321,14 +321,21 @@ export const InitiativeTracker: React.FC<InitiativeTrackerProps> = ({
   };
 
   if (error) {
+    const errorMessage =
+      error instanceof Error
+        ? error.message
+        : typeof error === "string"
+        ? error
+        : "Unknown error";
     return (
       <DraggableWindow
         headerContent="Initiative Tracker - Error"
         close={onClose}
+        onKeyDown={() => {}}
         bodyContent={
           <Box p={4}>
             <Text color="red.500">
-              Failed to load combat state: {error.message}
+              Failed to load combat state: {errorMessage}
             </Text>
           </Box>
         }
@@ -349,6 +356,7 @@ export const InitiativeTracker: React.FC<InitiativeTrackerProps> = ({
         </Flex>
       }
       close={onClose}
+      onKeyDown={() => {}}
       bodyContent={
         <Box p={4} overflowY="auto" maxHeight="70vh" minWidth="400px">
           <VStack spacing={4} align="stretch">
@@ -400,7 +408,7 @@ export const InitiativeTracker: React.FC<InitiativeTrackerProps> = ({
               </Box>
             ) : (
               <List spacing={0}>
-                {initiatives.map((entry) => (
+                {initiatives.map((entry: any) => (
                   <InitiativeListItem key={entry.id} isActive={entry.isActive}>
                     {editingTokenId === entry.tokenId ? (
                       // Edit Mode
