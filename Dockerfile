@@ -1,4 +1,4 @@
-FROM node:16 as dependency-builder
+FROM node:16 AS dependency-builder
 
 WORKDIR /usr/src/build
 
@@ -6,22 +6,22 @@ RUN echo "unsafe-perm = true" > .npmrc
 
 COPY . .
 
-RUN npm install
+RUN npm install --legacy-peer-deps
 
 
-FROM dependency-builder as application-builder
+FROM dependency-builder AS application-builder
 
 ARG SKIP_BUILD
 
 RUN if [ "$SKIP_BUILD" = "true" ]; then echo "SKIP BUILD"; else npm run build; fi
 
-FROM dependency-builder as production-dependency-builder
+FROM dependency-builder AS production-dependency-builder
 
 # then we remove all dependencies we no longer need
-RUN npm prune --production
+RUN npm prune --production --legacy-peer-deps
 
 
-FROM node:16-slim as final
+FROM node:16-slim AS final
 
 # Create app directory
 WORKDIR /usr/src/app
