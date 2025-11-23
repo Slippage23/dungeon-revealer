@@ -38,8 +38,19 @@ export const getNoteTemplatesByMapId =
           ),
         E.toError
       ),
-      TE.map((rows) =>
-        rows.map((row) =>
+      TE.map((rows) => {
+        console.log(
+          "[NoteTemplateDb] getNoteTemplatesByMapId: Got rows count:",
+          rows.length
+        );
+        if (rows.length > 0) {
+          console.log("[NoteTemplateDb] First row (raw):", rows[0]);
+          console.log(
+            "[NoteTemplateDb] First row (after camelCaseKeys):",
+            camelCaseKeys(rows[0])
+          );
+        }
+        return rows.map((row) =>
           pipe(
             row,
             (r) => camelCaseKeys(r),
@@ -51,8 +62,8 @@ export const getNoteTemplatesByMapId =
               );
             })
           )
-        )
-      )
+        );
+      })
     );
 
 /**

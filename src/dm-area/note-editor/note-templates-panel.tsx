@@ -1,18 +1,5 @@
 import * as React from "react";
-import {
-  Box,
-  Button,
-  HStack,
-  VStack,
-  Text,
-  useDisclosure,
-  Tabs,
-  TabList,
-  TabPanels,
-  Tab,
-  TabPanel,
-  Divider,
-} from "@chakra-ui/react";
+import { VStack, useDisclosure } from "@chakra-ui/react";
 import * as Icon from "../../feather-icons";
 import { NoteTemplateList } from "./note-template-list";
 import { NoteTemplateCreateModal } from "./note-template-create-modal";
@@ -33,6 +20,7 @@ export const NoteTemplatesPanel: React.FC<NoteTemplatesPanelProps> = ({
   onTemplateApply,
   currentNoteId,
 }) => {
+  console.log("[NoteTemplatesPanel] Rendering with mapId:", mapId);
   const {
     isOpen: isCreateModalOpen,
     onOpen: onCreateModalOpen,
@@ -48,48 +36,14 @@ export const NoteTemplatesPanel: React.FC<NoteTemplatesPanelProps> = ({
 
   return (
     <>
-      <Box p={3} borderTopWidth="1px">
-        <Tabs variant="soft-rounded" size="sm">
-          <TabList mb={2}>
-            <Tab>Templates</Tab>
-            <Tab>Manage</Tab>
-          </TabList>
-
-          <TabPanels>
-            {/* Templates Tab - Quick access to apply templates */}
-            <TabPanel p={0}>
-              <NoteTemplateList
-                key={`templates-${refreshKey}`}
-                mapId={mapId}
-                onTemplateSelect={onTemplateApply}
-                onCreateClick={onCreateModalOpen}
-              />
-            </TabPanel>
-
-            {/* Manage Tab - Create and delete templates */}
-            <TabPanel p={0}>
-              <VStack spacing={3}>
-                <Button
-                  w="100%"
-                  leftIcon={<Icon.Plus size={16} />}
-                  onClick={onCreateModalOpen}
-                  colorScheme="blue"
-                  size="sm"
-                >
-                  Create New Template
-                </Button>
-
-                <Divider />
-
-                <Text fontSize="xs" color="gray.600">
-                  Templates allow you to create reusable note structures. Define
-                  fields once and quickly create standardized notes.
-                </Text>
-              </VStack>
-            </TabPanel>
-          </TabPanels>
-        </Tabs>
-      </Box>
+      <VStack spacing={3} align="stretch" w="full">
+        <NoteTemplateList
+          key={`templates-${refreshKey}`}
+          mapId={mapId}
+          onTemplateSelect={onTemplateApply}
+          onCreateClick={onCreateModalOpen}
+        />
+      </VStack>
 
       <NoteTemplateCreateModal
         isOpen={isCreateModalOpen}

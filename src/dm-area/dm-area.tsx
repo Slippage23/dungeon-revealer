@@ -516,13 +516,7 @@ const ContentWithMapIdProvider = ({
   socket: Socket;
   password: string;
 }): React.ReactElement => {
-  const [loadedMapId] = useLoadedMapId();
-
-  return (
-    <MapIdProvider mapId={loadedMapId}>
-      <Content socket={socket} password={password} />
-    </MapIdProvider>
-  );
+  return <Content socket={socket} password={password} />;
 };
 
 const DmAreaRenderer = ({
@@ -531,17 +525,20 @@ const DmAreaRenderer = ({
   password: string;
 }): React.ReactElement => {
   const socket = useSocket();
+  const [loadedMapId] = useLoadedMapId();
 
   return (
     <AccessTokenProvider value={password}>
-      <AuthenticatedAppShell
-        socket={socket}
-        password={password}
-        isMapOnly={false}
-        role="DM"
-      >
-        <ContentWithMapIdProvider socket={socket} password={password} />
-      </AuthenticatedAppShell>
+      <MapIdProvider mapId={loadedMapId}>
+        <AuthenticatedAppShell
+          socket={socket}
+          password={password}
+          isMapOnly={false}
+          role="DM"
+        >
+          <ContentWithMapIdProvider socket={socket} password={password} />
+        </AuthenticatedAppShell>
+      </MapIdProvider>
     </AccessTokenProvider>
   );
 };

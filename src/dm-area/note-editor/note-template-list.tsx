@@ -60,7 +60,7 @@ export const NoteTemplateList: React.FC<NoteTemplateListProps> = ({
   );
 
   if (templateQuery.isLoading) {
-    return <Text>Loading templates...</Text>;
+    return <Text>Loading templates... (mapId={mapId})</Text>;
   }
 
   if (templateQuery.error) {
@@ -75,6 +75,12 @@ export const NoteTemplateList: React.FC<NoteTemplateListProps> = ({
   }
 
   const templates = (templateQuery.data?.noteTemplates as NoteTemplate[]) || [];
+
+  console.log("[NoteTemplateList] Templates array:", templates);
+  console.log("[NoteTemplateList] Templates length:", templates.length);
+  if (templates.length > 0) {
+    console.log("[NoteTemplateList] First template:", templates[0]);
+  }
 
   if (templates.length === 0) {
     return (

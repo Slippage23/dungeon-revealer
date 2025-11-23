@@ -16,6 +16,8 @@ import {
 import { useNoteWindows, useNoteWindowActions } from ".";
 import { NoteEditorActiveItem } from "../note-editor/note-editor-active-item";
 import { EnhancedNoteEditorSidebar } from "../note-editor/enhanced-note-editor-sidebar";
+import { useCurrentMapId } from "../note-editor/map-context";
+import { useApplyTemplate } from "../note-editor/hooks/use-apply-template";
 import { useQuery, useMutation, useFragment } from "relay-hooks";
 import type {
   tokenInfoAside_nodeQuery,
@@ -274,10 +276,26 @@ const WindowRenderer = (props: {
   const [showLibrary, setShowLibrary] = React.useState(
     props.initialShowLibrary
   );
+  const [showTemplatesPanel, setShowTemplatesPanel] = React.useState(false);
+
+  // Get current map ID from context
+  const currentMapId = useCurrentMapId();
+
+  // Hook to apply templates
+  const applyTemplate = useApplyTemplate();
 
   const isLoading = !data.data && !data.error && !isSkipped;
 
   const [, node] = useCurrent(extractNode(data.data), isLoading, 300);
+
+  React.useEffect(() => {
+    console.log("[TOKEN-INFO-ASIDE] State check:", {
+      showTemplatesPanel,
+      node: node ? node.id : null,
+      currentMapId,
+      condition: showTemplatesPanel && node && currentMapId,
+    });
+  }, [showTemplatesPanel, node, currentMapId]);
 
   const [isEditMode, setIsEditMode] = React.useState(false);
   const sideBarRef = React.useRef<HTMLDivElement>(null);
@@ -372,7 +390,24 @@ const WindowRenderer = (props: {
       ]
     : [];
 
-  const options = [...canEditOptions, ...canShareOptions];
+  const templatesButtonOption = {
+    onClick: () => {
+      console.log(
+        "[TOKEN-INFO-ASIDE] List button clicked! Current state:",
+        showTemplatesPanel
+      );
+      setShowTemplatesPanel((show) => !show);
+    },
+    title: "Templates & Categories",
+    icon: <Icon.List boxSize="16px" />,
+    isDisabled: false,
+  };
+
+  const options = [
+    ...canEditOptions,
+    ...canShareOptions,
+    templatesButtonOption,
+  ];
 
   // Ref with callback for resizing the editor.
   const editorOnResizeRef = React.useRef(() => undefined);
@@ -537,18 +572,73 @@ const WindowRenderer = (props: {
         onDidResize={() => {
           editorOnResizeRef.current?.();
         }}
-        sideBarContent={
-          showLibrary ? (
-            <Flex height="100%" flexDirection="column">
-              <TokenInfoSideBar
-                windowId={props.windowId}
-                activeNoteId={props.noteId}
-              />
-            </Flex>
-          ) : node ? (
-            <EnhancedNoteEditorSidebar currentNoteId={node.id} />
-          ) : null
-        }
+        sideBarContent={(() => {
+          console.log(
+            "[TOKEN-INFO-ASIDE] Rendering sidebar, showLibrary:",
+            showLibrary,
+            "showTemplatesPanel:",
+            showTemplatesPanel,
+            "node:",
+            node,
+            "currentMapId:",
+            currentMapId
+          );
+
+          // Templates takes priority over Library
+          if (showTemplatesPanel && node && currentMapId) {
+            console.log(
+              "[TOKEN-INFO-ASIDE] => Showing Templates with node.id:",
+              node?.id
+            );
+            return (
+              <>
+                <EnhancedNoteEditorSidebar
+                  mapId={currentMapId}
+                  currentNoteId={node.id}
+                  onTemplateApply={(template) => {
+                    console.log(
+                      "[TOKEN-INFO-ASIDE] Applying template:",
+                      template.name
+                    );
+                    applyTemplate(node.id, template).catch((err) => {
+                      console.error(
+                        "[TOKEN-INFO-ASIDE] Error applying template:",
+                        err
+                      );
+                    });
+                  }}
+                />
+              </>
+            );
+          }
+
+          if (showTemplatesPanel) {
+            console.log(
+              "[TOKEN-INFO-ASIDE] => Showing Templates (but missing node or mapId)"
+            );
+            return (
+              <Box p={2}>
+                No map loaded or note not selected (showTemplatesPanel=
+                {showTemplatesPanel}, node={!!node}, mapId={!!currentMapId})
+              </Box>
+            );
+          }
+
+          if (showLibrary) {
+            console.log("[TOKEN-INFO-ASIDE] => Showing Library");
+            return (
+              <Flex height="100%" flexDirection="column">
+                <TokenInfoSideBar
+                  windowId={props.windowId}
+                  activeNoteId={props.noteId}
+                />
+              </Flex>
+            );
+          }
+
+          console.log("[TOKEN-INFO-ASIDE] => Showing nothing");
+          return null;
+        })()}
       />
       {permissionPopUpNode}
     </WindowContext.Provider>

@@ -64,6 +64,15 @@ export const NoteEditorActiveItem: React.FC<{
   // We wanna auto-save the node only after the content has changed
   const previousContent = React.useRef(content);
 
+  // Update local state when the Relay fragment changes (e.g., after template is applied)
+  // Only update if the fragment content differs from local state
+  React.useEffect(() => {
+    if (node.content !== content) {
+      setContent(node.content || "");
+      previousContent.current = node.content || "";
+    }
+  }, [node.content, content]);
+
   React.useEffect(() => {
     if (previousContent.current !== content) {
       update(content);

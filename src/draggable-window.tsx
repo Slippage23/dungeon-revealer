@@ -6,7 +6,7 @@ import { Tooltip } from "@chakra-ui/react";
 import * as Icon from "./feather-icons";
 import * as Button from "./button";
 
-const WindowContainer = styled(animated.div)<{ isSideBarVisible: boolean }>`
+const WindowContainerInner = styled(animated.div)`
   position: absolute;
   box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
   border-radius: 8px;
@@ -14,8 +14,11 @@ const WindowContainer = styled(animated.div)<{ isSideBarVisible: boolean }>`
   position: absolute;
   z-index: 100;
   user-select: text;
-  border-top-left-radius: ${(props) => (props.isSideBarVisible ? 0 : null)};
-  border-bottom-left-radius: ${(props) => (props.isSideBarVisible ? 0 : null)};
+
+  &[data-has-sidebar="true"] {
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+  }
 `;
 
 const WindowHeader = styled.div`
@@ -54,6 +57,10 @@ const WindowSideBar = styled.div`
   height: 100%;
   border-top-left-radius: 8px;
   border-bottom-left-radius: 8px;
+  z-index: 10;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 `;
 
 const hasButtonParent = (el: any) => {
@@ -175,9 +182,11 @@ export const DraggableWindow = ({
     }
   );
 
+  const isSideBarVisible = sideBarContent != null;
+
   return (
-    <WindowContainer
-      isSideBarVisible={sideBarContent != null}
+    <WindowContainerInner
+      data-has-sidebar={isSideBarVisible ? "true" : "false"}
       onKeyDown={onKeyDown}
       onMouseDown={onMouseDown}
       onContextMenu={(ev) => {
@@ -237,6 +246,6 @@ export const DraggableWindow = ({
       </WindowBody>
       <WindowsResizeHandle {...dimensionDragBind()} />
       {sideBarContent ? <WindowSideBar>{sideBarContent}</WindowSideBar> : null}
-    </WindowContainer>
+    </WindowContainerInner>
   );
 };

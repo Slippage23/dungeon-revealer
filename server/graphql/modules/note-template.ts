@@ -85,12 +85,12 @@ const GraphQLNoteTemplateType =
       t.field({
         name: "isDefault",
         type: t.NonNull(t.Boolean),
-        resolve: (record) => Boolean(record.is_default),
+        resolve: (record) => Boolean(record.isDefault),
       }),
       t.field({
         name: "createdAt",
         type: t.NonNull(t.Int),
-        resolve: (record) => record.created_at,
+        resolve: (record) => record.createdAt,
       }),
     ],
   });

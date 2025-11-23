@@ -563,25 +563,29 @@ const ActiveDmMapToolModel = io.union([
   io.literal(AreaSelectMapTool.id),
   io.literal(MarkAreaMapTool.id),
   io.literal(TokenMarkerMapTool.id),
+  io.null,
 ]);
 
 const activeDmMapToolIdModel: PersistedStateModel<
   io.TypeOf<typeof ActiveDmMapToolModel>
 > = {
-  encode: identity,
-  decode: (value) =>
-    pipe(
+  encode: (value) => (value === null ? "" : value),
+  decode: (value) => {
+    // If value is null, treat it as uninitialized and return default
+    if (value === null) {
+      return DragPanZoomMapTool.id;
+    }
+    return pipe(
       ActiveDmMapToolModel.decode(value),
       E.fold((err) => {
-        if (value !== null) {
-          console.log(
-            "Error occurred while trying to decode value.\n" +
-              JSON.stringify(err, null, 2)
-          );
-        }
+        console.log(
+          "Error occurred while trying to decode value.\n" +
+            JSON.stringify(err, null, 2)
+        );
         return DragPanZoomMapTool.id;
       }, identity)
-    ),
+    );
+  },
 };
 
 const MapPingMutation = graphql`
@@ -826,7 +830,6 @@ export const DmMap = (props: {
             SharedTokenStateStoreContext,
           ]}
           fogOpacity={0.5}
-          onTokenSelect={props.onTokenSelect}
         />
       </React.Suspense>
 

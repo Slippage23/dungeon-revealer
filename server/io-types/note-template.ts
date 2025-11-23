@@ -31,18 +31,18 @@ export const NoteTemplateSchema = t.type({
 export type NoteTemplateSchemaType = t.TypeOf<typeof NoteTemplateSchema>;
 
 /**
- * Note template from database
+ * Note template from database (camelCase keys after camelCaseKeys transformation)
  */
 export const NoteTemplate = t.type({
   id: t.string,
-  map_id: t.string,
+  mapId: t.string,
   name: t.string,
   category: t.string,
   description: t.union([t.string, t.undefined]),
   schema: t.string, // JSON stringified
-  is_default: t.union([t.number, t.boolean]),
-  created_at: t.number,
-  updated_at: t.number,
+  isDefault: t.union([t.number, t.boolean]),
+  createdAt: t.number,
+  updatedAt: t.number,
 });
 
 export type NoteTemplateType = t.TypeOf<typeof NoteTemplate>;
