@@ -34,7 +34,8 @@ export const NoteEditorActiveItem: React.FC<{
   nodeRef: noteEditorActiveItem_nodeFragment$key;
   sideBarRef: React.RefObject<HTMLDivElement>;
   editorOnResizeRef?: React.MutableRefObject<() => void>;
-}> = ({ isEditMode, nodeRef, sideBarRef, editorOnResizeRef }) => {
+  contentRef?: React.MutableRefObject<string>;
+}> = ({ isEditMode, nodeRef, sideBarRef, editorOnResizeRef, contentRef }) => {
   const node = useFragment(NoteEditorActiveItem_NodeFragment, nodeRef);
 
   const [mutate] = useMutation<noteEditorActiveItemNoteUpdateContentMutation>(
@@ -60,6 +61,13 @@ export const NoteEditorActiveItem: React.FC<{
   );
 
   const [content, setContent] = React.useState(node.content || "");
+
+  // Update contentRef if provided, so parent can access current content
+  React.useEffect(() => {
+    if (contentRef) {
+      contentRef.current = content;
+    }
+  }, [content, contentRef]);
 
   // We wanna auto-save the node only after the content has changed
   const previousContent = React.useRef(content);

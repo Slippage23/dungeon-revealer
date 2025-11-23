@@ -284,6 +284,9 @@ const WindowRenderer = (props: {
   // Hook to apply templates
   const applyTemplate = useApplyTemplate();
 
+  // Ref to track current editor content
+  const editorContentRef = React.useRef<string>("");
+
   const isLoading = !data.data && !data.error && !isSkipped;
 
   const [, node] = useCurrent(extractNode(data.data), isLoading, 300);
@@ -522,6 +525,7 @@ const WindowRenderer = (props: {
                 nodeRef={node}
                 sideBarRef={sideBarRef}
                 editorOnResizeRef={editorOnResizeRef}
+                contentRef={editorContentRef}
               />
               <NoteEditorSideReference>
                 <div ref={sideBarRef} />
@@ -600,14 +604,16 @@ const WindowRenderer = (props: {
                       "[TOKEN-INFO-ASIDE] Applying template:",
                       template.name
                     );
-                    applyTemplate(node.id, template, node.content).catch(
-                      (err) => {
-                        console.error(
-                          "[TOKEN-INFO-ASIDE] Error applying template:",
-                          err
-                        );
-                      }
-                    );
+                    applyTemplate(
+                      node.id,
+                      template,
+                      editorContentRef.current
+                    ).catch((err) => {
+                      console.error(
+                        "[TOKEN-INFO-ASIDE] Error applying template:",
+                        err
+                      );
+                    });
                   }}
                 />
               </>
