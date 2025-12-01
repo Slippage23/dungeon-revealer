@@ -461,18 +461,22 @@ const GraphQLMapGridType = t.objectType<MapGridEntity>({
     t.field({
       name: "offsetX",
       type: t.NonNull(t.Float),
+      resolve: (source) => source.offsetX ?? 0,
     }),
     t.field({
       name: "offsetY",
       type: t.NonNull(t.Float),
+      resolve: (source) => source.offsetY ?? 0,
     }),
     t.field({
       name: "columnWidth",
       type: t.NonNull(t.Float),
+      resolve: (source) => source.columnWidth ?? 100,
     }),
     t.field({
       name: "columnHeight",
       type: t.NonNull(t.Float),
+      resolve: (source) => source.columnHeight ?? 100,
     }),
   ],
 });
@@ -496,10 +500,12 @@ const GraphQLMapTokenType = t.objectType<MapTokenEntity>({
     t.field({
       name: "rotation",
       type: t.NonNull(t.Float),
+      resolve: (source) => source.rotation ?? 0,
     }),
     t.field({
       name: "radius",
       type: t.NonNull(t.Float),
+      resolve: (source) => source.radius ?? 100,
     }),
     t.field({
       name: "color",
@@ -514,14 +520,17 @@ const GraphQLMapTokenType = t.objectType<MapTokenEntity>({
     t.field({
       name: "isVisibleForPlayers",
       type: t.NonNull(t.Boolean),
+      resolve: (source) => source.isVisibleForPlayers ?? false,
     }),
     t.field({
       name: "isMovableByPlayers",
       type: t.NonNull(t.Boolean),
+      resolve: (source) => source.isMovableByPlayers ?? false,
     }),
     t.field({
       name: "isLocked",
       type: t.NonNull(t.Boolean),
+      resolve: (source) => source.isLocked ?? false,
     }),
     t.field({
       name: "tokenImage",
@@ -593,6 +602,7 @@ const GraphQLMapType = t.objectType<MapEntity>({
       name: "title",
       description: "The title of the map.",
       type: t.NonNull(t.String),
+      resolve: (source) => source.title ?? "Untitled Map",
     }),
     t.field({
       name: "mapImageUrl",
@@ -649,10 +659,12 @@ const GraphQLMapType = t.objectType<MapEntity>({
     t.field({
       name: "showGrid",
       type: t.NonNull(t.Boolean),
+      resolve: (source) => source.showGrid ?? false,
     }),
     t.field({
       name: "showGridToPlayers",
       type: t.NonNull(t.Boolean),
+      resolve: (source) => source.showGridToPlayers ?? false,
     }),
     t.field({
       name: "tokens",
