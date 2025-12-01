@@ -10,9 +10,9 @@ export default defineConfig({
     host: "0.0.0.0",
     port: 4000,
     proxy: {
-      "/api/socket.io": { target: "ws://localhost:3000", ws: true },
-      "/api": "http://localhost:3000",
-      "/files": "http://localhost:3000",
+      "/api/socket.io": { target: "ws://127.0.0.1:3000", ws: true },
+      "/api": "http://127.0.0.1:3000",
+      "/files": "http://127.0.0.1:3000",
     },
   },
   optimizeDeps: {

@@ -11,6 +11,7 @@
 This enhancement project is documented across several files:
 
 1. **ENHANCEMENT_ROADMAP.md** - Phases 1 & 2 (Core Features)
+
    - Token Management system with HP, conditions, stats
    - Database schemas and migrations
    - GraphQL API extensions
@@ -18,6 +19,7 @@ This enhancement project is documented across several files:
    - Enhanced Note System with templates and auto-linking
 
 2. **ENHANCEMENT_ROADMAP_PART4.md** - Phase 4 (AI Features)
+
    - AI Assistant integration with Claude
    - Cost analysis and caching strategy
    - NPC, Monster, and Location generators
@@ -38,21 +40,25 @@ This enhancement project is documented across several files:
 ### Implementation Order (Recommended)
 
 **Start Here:** Phase 1 - Token Management (2-3 weeks)
+
 - Most immediate value for gameplay
 - Foundation for other features
 - No external dependencies
 
 **Next:** Phase 2 - Enhanced Notes (3-4 weeks)
+
 - Rich note templates
 - Auto-linking between notes
 - Better organization
 
 **Then:** Phase 3 - Automation & Macros (2-3 weeks)
+
 - Reduce repetitive tasks
 - Scriptable actions
 - Event triggers
 
 **Finally:** Phase 4 - AI Assistant (1-2 weeks)
+
 - Optional but powerful
 - Requires API key ($1-2/month cost)
 - Significant time-saver for DMs
@@ -62,6 +68,7 @@ This enhancement project is documented across several files:
 ## Key Features Summary
 
 ### Phase 1: Advanced Token Management ⭐
+
 ```
 ✅ HP tracking with visual bars
 ✅ Status conditions with icons
@@ -71,6 +78,7 @@ This enhancement project is documented across several files:
 ```
 
 ### Phase 2: Enhanced Note System
+
 ```
 ✅ 6 pre-built templates (Monster, NPC, Location, Item, Quest, Session)
 ✅ @mention auto-linking between notes
@@ -80,6 +88,7 @@ This enhancement project is documented across several files:
 ```
 
 ### Phase 3: Automation & Macros
+
 ```
 ✅ Dice macro system
 ✅ Map reveal presets
@@ -89,6 +98,7 @@ This enhancement project is documented across several files:
 ```
 
 ### Phase 4: AI Assistant 🤖
+
 ```
 ✅ NPC generator (~$0.01 per use)
 ✅ Monster stat blocks (~$0.02 per use)
@@ -103,6 +113,7 @@ This enhancement project is documented across several files:
 ## File Structure Overview
 
 ### New Backend Files
+
 ```
 server/
 ├── migrations/
@@ -123,6 +134,7 @@ server/
 ```
 
 ### New Frontend Files
+
 ```
 src/dm-area/
 ├── token-stats-panel.tsx       # Token stats UI
@@ -132,6 +144,7 @@ src/dm-area/
 ```
 
 ### Modified Files
+
 ```
 src/map-view.tsx                # Add HP bars & condition overlays
 src/dm-area/dm-map.tsx          # Add toolbar buttons
@@ -162,6 +175,7 @@ ENABLE_AI_ASSISTANT=true
 ```
 
 ### Getting Anthropic API Key
+
 1. Go to https://console.anthropic.com/
 2. Sign up for account
 3. Navigate to API Keys
@@ -174,15 +188,16 @@ ENABLE_AI_ASSISTANT=true
 
 ### Monthly Costs for Active Use (Weekly Gaming)
 
-| Scenario | Estimated Cost |
-|----------|---------------|
-| Light use (2-3 generations/week) | $0.20 - $0.50 |
-| Moderate use (5-10 generations/week) | $0.50 - $1.00 |
-| Heavy use (10-20 generations/week) | $1.00 - $2.00 |
+| Scenario                             | Estimated Cost |
+| ------------------------------------ | -------------- |
+| Light use (2-3 generations/week)     | $0.20 - $0.50  |
+| Moderate use (5-10 generations/week) | $0.50 - $1.00  |
+| Heavy use (10-20 generations/week)   | $1.00 - $2.00  |
 
 **With Caching:** Costs reduce by 50%+ after first month as common requests are cached.
 
 ### What $1 Buys You
+
 - ~100 NPC descriptions
 - ~50 monster stat blocks
 - ~100 location descriptions
@@ -194,6 +209,7 @@ ENABLE_AI_ASSISTANT=true
 ## Implementation Checklist
 
 ### Phase 1: Token Management
+
 - [ ] Run database migration 4
 - [ ] Create token-types.ts
 - [ ] Create token-data-db.ts
@@ -204,6 +220,7 @@ ENABLE_AI_ASSISTANT=true
 - [ ] Test thoroughly
 
 ### Phase 2: Enhanced Notes
+
 - [ ] Run database migration 5
 - [ ] Create note-templates.ts
 - [ ] Create note-linking.ts
@@ -213,6 +230,7 @@ ENABLE_AI_ASSISTANT=true
 - [ ] Test auto-linking
 
 ### Phase 3: Automation & Macros
+
 - [ ] Run database migration 6
 - [ ] Create macro-types.ts
 - [ ] Create macro-engine.ts
@@ -220,6 +238,7 @@ ENABLE_AI_ASSISTANT=true
 - [ ] Test trigger system
 
 ### Phase 4: AI Assistant
+
 - [ ] Install @anthropic-ai/sdk
 - [ ] Create ai-assistant.ts
 - [ ] Create ai-cache.ts
@@ -235,6 +254,7 @@ ENABLE_AI_ASSISTANT=true
 ### Quick Test Scenarios
 
 **Token Management Test:**
+
 1. Create a token on map
 2. Click to open stats panel
 3. Set HP to 20/20
@@ -244,6 +264,7 @@ ENABLE_AI_ASSISTANT=true
 7. Set initiative and advance turns
 
 **Note System Test:**
+
 1. Create note from "NPC" template
 2. Type "@TavernName" in content
 3. Verify link is created
@@ -251,6 +272,7 @@ ENABLE_AI_ASSISTANT=true
 5. Check backlinks appear
 
 **AI Assistant Test (requires API key):**
+
 1. Open AI panel
 2. Generate NPC with occupation "Innkeeper"
 3. Verify content generated
@@ -262,12 +284,14 @@ ENABLE_AI_ASSISTANT=true
 ## Performance Expectations
 
 ### Database Performance
+
 - Token stats: <10ms query time
 - Initiative tracker: <50ms for 20 tokens
 - Note linking: <100ms for large notes
 - AI cache lookup: <5ms
 
 ### AI Response Times
+
 - First request: 2-5 seconds (API call)
 - Cached request: <100ms (instant)
 - Batch operations: 5-15 seconds
@@ -277,7 +301,9 @@ ENABLE_AI_ASSISTANT=true
 ## Troubleshooting Quick Reference
 
 ### Problem: Database errors after migration
-**Solution:** 
+
+**Solution:**
+
 ```bash
 # Backup your data first!
 rm data/database.db
@@ -286,20 +312,26 @@ npm run migrate
 ```
 
 ### Problem: Token stats not displaying
+
 **Solution:**
+
 - Check browser console for GraphQL errors
 - Verify token-data table exists in database
 - Check GraphQL module is registered
 
 ### Problem: AI assistant not working
+
 **Solution:**
+
 - Verify ANTHROPIC_API_KEY in .env
 - Check key is valid at console.anthropic.com
 - Review server logs for error messages
 - Test with curl: `curl -H "x-api-key: $KEY" https://api.anthropic.com/v1/messages`
 
 ### Problem: Initiative tracker showing wrong order
+
 **Solution:**
+
 - Ensure initiative values are set for all tokens
 - Check for undefined/null initiative values
 - Verify sorting logic in component
@@ -309,18 +341,21 @@ npm run migrate
 ## Next Steps After Implementation
 
 ### Immediate (Week 1)
+
 1. Test all features with your actual gaming group
 2. Gather feedback on UI/UX
 3. Fix any critical bugs
 4. Document any custom workflows
 
 ### Short Term (Month 1)
+
 1. Build your note library with templates
 2. Create macro presets for common actions
 3. Cache common AI requests for your campaign
 4. Fine-tune initiative tracker workflow
 
 ### Long Term (3+ Months)
+
 1. Consider Phase 5 features (map layers, lighting)
 2. Build community templates/macros
 3. Share improvements back to project
@@ -331,16 +366,19 @@ npm run migrate
 ## Resources & References
 
 ### Official Documentation
+
 - Dungeon Revealer Wiki: https://github.com/dungeon-revealer/dungeon-revealer/wiki
 - Anthropic API Docs: https://docs.anthropic.com/
 
 ### Technologies Used
+
 - **Backend:** Node.js, TypeScript, SQLite, GraphQL
 - **Frontend:** React, TypeScript, Chakra UI, Relay
 - **AI:** Claude API (Anthropic)
 - **Build:** Vite, Babel
 
 ### Useful Commands
+
 ```bash
 # Development
 npm install          # Install dependencies
@@ -389,6 +427,7 @@ If you need help during implementation:
 This is a comprehensive enhancement project that will take 8-12 weeks to fully implement. However, each phase provides immediate value and can be used independently.
 
 **Recommended approach:**
+
 - Start with Phase 1 (token management) for immediate gameplay improvement
 - Add Phase 2 (notes) when you have campaign content to organize
 - Phase 3 (macros) can be added as needs arise
@@ -400,6 +439,6 @@ The implementation is designed to be modular - you can pick and choose features 
 
 ---
 
-*Document created: 2025
+_Document created: 2025
 Project: Dungeon Revealer Custom Fork
-Target: In-person tabletop gaming enhancement*
+Target: In-person tabletop gaming enhancement_

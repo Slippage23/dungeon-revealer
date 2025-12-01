@@ -14,17 +14,17 @@ The Docker image has been successfully built and is ready for deployment to Unra
 ### Image Details
 
 ```
-Repository: dungeon-revealer
+Repository: slippage/dungeon-revealer
 Tags:
+  - latest (RECOMMENDED - always newest)
   - v1.17.1-phase2 (specific release)
-  - latest (points to v1.17.1-phase2)
 
 Base Image: node:16-slim (optimized for production)
 Port:       3000 (GraphQL API + WebSocket)
 Entry:      node server-build/index.js
 
 Size:       501 MB compressed
-Built:      November 23, 2025
+Built:      November 23, 2025 (will update with each deployment)
 ```
 
 ---
@@ -51,34 +51,33 @@ docker run -d \
   -e PC_PASSWORD=your-secure-player-password \
   -e NODE_ENV=production \
   -v /mnt/user/appdata/dungeon-revealer/data:/usr/src/app/data \
-  dungeon-revealer:v1.17.1-phase2
+  slippage/dungeon-revealer:latest
 ```
 
 #### Option B: Via Unraid Web UI
 
 1. Go to **Docker** tab
 2. Click **"Add Container"**
-3. Select **Image:** `dungeon-revealer:v1.17.1-phase2`
-4. Set **Container Name:** `dungeon-revealer`
-5. Add **Port Mappings:**
+3. Set **Container Name:** `dungeon-revealer`
+4. Add **Port Mappings:**
 
    - Container Port: `3000`
    - Host Port: `3000`
    - Type: `TCP`
 
-6. Add **Environment Variables:**
+5. Add **Environment Variables:**
 
    - `DM_PASSWORD` = your-secure-password
    - `PC_PASSWORD` = your-player-password
    - `NODE_ENV` = `production`
 
-7. Add **Volume Mappings:**
+6. Add **Volume Mappings:**
 
    - Container Path: `/usr/src/app/data`
    - Host Path: `/mnt/user/appdata/dungeon-revealer/data`
    - Access Mode: `Read/Write`
 
-8. Click **Apply** and start container
+7. Click **Apply** and start container
 
 ### Step 3: Verify Container is Running
 
@@ -108,7 +107,7 @@ Save this as `dungeon-revealer.xml` in your Unraid templates folder:
 <?xml version="1.0"?>
 <Container version="2">
   <Name>dungeon-revealer</Name>
-  <Repository>dungeon-revealer:v1.17.1-phase2</Repository>
+  <Repository>slippage/dungeon-revealer:latest</Repository>
   <Registry>https://registry-1.docker.io</Registry>
   <Network>bridge</Network>
   <Privileged>false</Privileged>
@@ -117,7 +116,8 @@ Save this as `dungeon-revealer.xml` in your Unraid templates folder:
   <Overview>A real-time web app for tabletop gaming (D&D, Cyberpunk, etc.) with DM and player areas.</Overview>
   <Category>Gaming</Category>
   <WebUI>http://[IP]:[PORT:3000]/</WebUI>
-  <TemplateURL>raw.githubusercontent.com/Slippage23/dungeon-revealer/master/.unraid/dungeon-revealer.xml</TemplateURL>
+  <Icon>https://raw.githubusercontent.com/Slippage23/dungeon-revealer/master/public/images/icons/android-chrome-512x512.png</Icon>
+  <TemplateURL>https://raw.githubusercontent.com/Slippage23/dungeon-revealer/master/.unraid/dungeon-revealer.xml</TemplateURL>
 
   <Environment>
     <Variable Name="DM_PASSWORD" Value="change-me" Description="Password for Dungeon Master access"/>
@@ -274,7 +274,7 @@ To update to a newer version:
 1. Pull latest image:
 
    ```bash
-   docker pull dungeon-revealer:latest
+   docker pull slippage/dungeon-revealer:latest
    ```
 
 2. Stop current container:

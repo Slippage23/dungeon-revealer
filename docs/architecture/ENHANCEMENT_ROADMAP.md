@@ -3,6 +3,7 @@
 **Project Goal:** Enhance Dungeon Revealer with advanced token management, rich note system, automation, and AI assistance for in-person tabletop gaming.
 
 **Key Constraints:**
+
 - Designed for in-person play (no voice/video needed)
 - Focus on local asset management
 - Keep it performant and stable
@@ -13,6 +14,7 @@
 ## Phase 1: Advanced Token Management ⭐ **START HERE**
 
 ### Overview
+
 Transform basic tokens into rich game objects with stats, HP tracking, conditions, and initiative management.
 
 ### Database Schema Changes
@@ -130,7 +132,7 @@ export class TokenDataDB {
   // Create or update token data
   upsertTokenData(data: Omit<TokenData, "createdAt" | "updatedAt">): TokenData {
     const now = Date.now();
-    
+
     const stmt = this.db.prepare(`
       INSERT INTO token_data (id, map_id, token_id, name, stats, conditions, linked_note_id, created_at, updated_at)
       VALUES (@id, @mapId, @tokenId, @name, @stats, @conditions, @linkedNoteId, @createdAt, @updatedAt)
@@ -162,7 +164,7 @@ export class TokenDataDB {
     const stmt = this.db.prepare(`
       SELECT * FROM token_data WHERE id = ?
     `);
-    
+
     const row = stmt.get(id) as any;
     if (!row) return null;
 
@@ -184,9 +186,9 @@ export class TokenDataDB {
     const stmt = this.db.prepare(`
       SELECT * FROM token_data WHERE map_id = ? ORDER BY name
     `);
-    
+
     const rows = stmt.all(mapId) as any[];
-    return rows.map(row => ({
+    return rows.map((row) => ({
       id: row.id,
       mapId: row.map_id,
       tokenId: row.token_id,
@@ -204,7 +206,10 @@ export class TokenDataDB {
     const tokenData = this.getTokenData(id);
     if (!tokenData) throw new Error("Token data not found");
 
-    tokenData.stats.hp.current = Math.max(0, Math.min(current, tokenData.stats.hp.max));
+    tokenData.stats.hp.current = Math.max(
+      0,
+      Math.min(current, tokenData.stats.hp.max)
+    );
     if (max !== undefined) {
       tokenData.stats.hp.max = Math.max(1, max);
     }
@@ -218,7 +223,7 @@ export class TokenDataDB {
     if (!tokenData) throw new Error("Token data not found");
 
     // Don't add duplicate conditions
-    if (!tokenData.conditions.find(c => c.id === condition.id)) {
+    if (!tokenData.conditions.find((c) => c.id === condition.id)) {
       tokenData.conditions.push(condition);
       this.upsertTokenData(tokenData);
     }
@@ -229,17 +234,19 @@ export class TokenDataDB {
     const tokenData = this.getTokenData(id);
     if (!tokenData) throw new Error("Token data not found");
 
-    tokenData.conditions = tokenData.conditions.filter(c => c.id !== conditionId);
+    tokenData.conditions = tokenData.conditions.filter(
+      (c) => c.id !== conditionId
+    );
     this.upsertTokenData(tokenData);
   }
 
   // Decrement condition durations (called at end of round)
   decrementConditionDurations(mapId: string): void {
     const tokens = this.getTokenDataForMap(mapId);
-    
-    tokens.forEach(token => {
+
+    tokens.forEach((token) => {
       let modified = false;
-      token.conditions = token.conditions.filter(condition => {
+      token.conditions = token.conditions.filter((condition) => {
         if (condition.duration !== undefined) {
           condition.duration--;
           if (condition.duration <= 0) {
@@ -275,7 +282,14 @@ export class TokenDataDB {
 #### File: `server/graphql/modules/token-data.ts` (NEW)
 
 ```typescript
-import { GraphQLObjectType, GraphQLString, GraphQLInt, GraphQLList, GraphQLNonNull, GraphQLInputObjectType } from "graphql";
+import {
+  GraphQLObjectType,
+  GraphQLString,
+  GraphQLInt,
+  GraphQLList,
+  GraphQLNonNull,
+  GraphQLInputObjectType,
+} from "graphql";
 import { TokenDataDB } from "../../token-data-db";
 import { COMMON_CONDITIONS } from "../../token-types";
 
@@ -480,4 +494,3 @@ import { tokenDataQueries, tokenDataMutations } from "./modules/token-data";
 // To Mutation type:
 ...tokenDataMutations,
 ```
-

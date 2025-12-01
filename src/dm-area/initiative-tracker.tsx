@@ -36,7 +36,8 @@ import * as Icon from "../feather-icons";
 
 // GraphQL Queries and Mutations
 const InitiativeTracker_CombatStateQuery = graphql`
-  query initiativeTrackerCombatStateQuery($mapId: String!) @live {
+  query initiativeTrackerCombatStateQuery($mapId: String!, $mapIdForTokens: ID!)
+  @live {
     combatState(mapId: $mapId) {
       mapId
       isActive
@@ -50,6 +51,11 @@ const InitiativeTracker_CombatStateQuery = graphql`
         roundNumber
         orderIndex
       }
+    }
+    mapTokens(mapId: $mapIdForTokens) {
+      id
+      label
+      color
     }
   }
 `;
@@ -119,17 +125,18 @@ const InitiativeTracker_RemoveFromInitiativeMutation = graphql`
   }
 `;
 
-const InitiativeListItem = styled(ListItem)<{ isActive: boolean }>`
+const InitiativeListItem = styled("div")<{ $isActive: boolean }>`
   padding: 12px;
   border-radius: 6px;
-  background-color: ${(props) => (props.isActive ? "#e6f7ff" : "#ffffff")};
+  background-color: ${(props) => (props.$isActive ? "#e6f7ff" : "#ffffff")};
   border: ${(props) =>
-    props.isActive ? "2px solid #1890ff" : "1px solid #e2e8f0"};
+    props.$isActive ? "2px solid #1890ff" : "1px solid #e2e8f0"};
   margin-bottom: 8px;
   transition: all 0.2s ease;
+  list-style: none;
 
   &:hover {
-    background-color: ${(props) => (props.isActive ? "#e6f7ff" : "#f7fafc")};
+    background-color: ${(props) => (props.$isActive ? "#e6f7ff" : "#f7fafc")};
   }
 `;
 
@@ -144,12 +151,19 @@ export const InitiativeTracker: React.FC<InitiativeTrackerProps> = ({
 }) => {
   const toast = useToast();
 
-  // Query combat state
-  const { data, error } = useQuery(
+  // Query combat state and map tokens
+  // Use network-first to ensure fresh data from server
+  const queryResult = useQuery(
     InitiativeTracker_CombatStateQuery,
-    { mapId },
-    { fetchPolicy: "store-and-network" }
+    { mapId, mapIdForTokens: mapId },
+    { fetchPolicy: "network-only" }
   );
+
+  const { data, error } = queryResult;
+
+  // Live updates from @live directive - no manual refetch needed
+  const combatState = (data as any)?.combatState;
+  const isInCombat = combatState?.isActive || false;
 
   // Mutations
   const [setInitiative] = useMutation(InitiativeTracker_SetInitiativeMutation);
@@ -168,17 +182,53 @@ export const InitiativeTracker: React.FC<InitiativeTrackerProps> = ({
     null
   );
 
-  const combatState = (data as any)?.combatState;
   const initiatives = combatState?.initiatives || [];
-  const isInCombat = combatState?.isActive || false;
   const currentRound = combatState?.currentRound || 1;
+
+  // Get all tokens and compute unassigned ones
+  const allTokens = (data as any)?.mapTokens || [];
+  React.useEffect(() => {
+    console.log(
+      "[Initiative Tracker] allTokens from mapTokens query:",
+      allTokens
+    );
+  }, [allTokens]);
+
+  const tokenLabelsMap = React.useMemo(() => {
+    const map = new Map<string, string>();
+    allTokens.forEach((token: any) => {
+      map.set(token.id, token.label || `Token ${token.id.substring(0, 8)}`);
+      console.log(
+        `[Initiative Tracker] Token label map: ${token.id} -> "${
+          token.label || `Token ${token.id.substring(0, 8)}`
+        }"`
+      );
+    });
+    console.log("[Initiative Tracker] Complete tokenLabelsMap:", map);
+    return map;
+  }, [allTokens]);
+
+  const getTokenLabel = (tokenId: string) => {
+    const label =
+      tokenLabelsMap.get(tokenId) || `Token ${tokenId.substring(0, 8)}`;
+    console.log(
+      `[Initiative Tracker] getTokenLabel("${tokenId}") -> "${label}"`
+    );
+    return label;
+  };
+
+  const initiativeTokenIds = new Set(initiatives.map((i: any) => i.tokenId));
+  const unassignedTokens = allTokens.filter(
+    (token: any) => !initiativeTokenIds.has(token.id)
+  );
 
   // Handle setting initiative for a token
   const handleSetInitiative = (tokenId: string) => {
     const value = parseInt(initiativeInputs[tokenId] || "0");
-    if (isNaN(value)) {
+    if (isNaN(value) || value < -20 || value > 30) {
       toast({
         title: "Invalid initiative value",
+        description: "Initiative should be between -20 and 30",
         status: "error",
         duration: 2000,
         isClosable: true,
@@ -398,121 +448,243 @@ export const InitiativeTracker: React.FC<InitiativeTrackerProps> = ({
 
             <Divider />
 
-            {/* Initiative List */}
-            {initiatives.length === 0 ? (
-              <Box textAlign="center" py={8} color="gray.500">
-                <Text>No tokens in initiative order</Text>
-                <Text fontSize="sm" mt={2}>
-                  Set initiative values for tokens to begin combat
-                </Text>
-              </Box>
-            ) : (
-              <List spacing={0}>
-                {initiatives.map((entry: any) => (
-                  <InitiativeListItem key={entry.id} isActive={entry.isActive}>
-                    {editingTokenId === entry.tokenId ? (
-                      // Edit Mode
-                      <Flex gap={2} align="center">
-                        <NumberInput
-                          value={initiativeInputs[entry.tokenId] || ""}
-                          onChange={(valueString) =>
-                            setInitiativeInputs((prev) => ({
-                              ...prev,
-                              [entry.tokenId]: valueString,
-                            }))
-                          }
-                          size="sm"
-                          flex={1}
-                        >
-                          <NumberInputField placeholder="Initiative" />
-                          <NumberInputStepper>
-                            <NumberIncrementStepper />
-                            <NumberDecrementStepper />
-                          </NumberInputStepper>
-                        </NumberInput>
+            {/* Initiative List - Top Section */}
+            <Box>
+              <Heading size="sm" mb={2}>
+                Initiative Order
+              </Heading>
+              {initiatives.length === 0 ? (
+                <Box
+                  textAlign="center"
+                  py={4}
+                  color="gray.500"
+                  bg="gray.50"
+                  borderRadius="md"
+                >
+                  <Text fontSize="sm">
+                    Add tokens from the pool below to start
+                  </Text>
+                </Box>
+              ) : (
+                <VStack spacing={0} align="stretch">
+                  {initiatives.map((entry: any) => (
+                    <InitiativeListItem
+                      key={entry.id}
+                      $isActive={entry.isActive}
+                    >
+                      {editingTokenId === entry.tokenId ? (
+                        // Edit Mode
+                        <Flex gap={2} align="center">
+                          <NumberInput
+                            value={initiativeInputs[entry.tokenId] || ""}
+                            onChange={(valueString) =>
+                              setInitiativeInputs((prev) => ({
+                                ...prev,
+                                [entry.tokenId]: valueString,
+                              }))
+                            }
+                            size="sm"
+                            flex={1}
+                          >
+                            <NumberInputField placeholder="Initiative" />
+                            <NumberInputStepper>
+                              <NumberIncrementStepper />
+                              <NumberDecrementStepper />
+                            </NumberInputStepper>
+                          </NumberInput>
+                          <Button
+                            size="sm"
+                            colorScheme="blue"
+                            onClick={() => handleSetInitiative(entry.tokenId)}
+                          >
+                            Set
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => {
+                              setEditingTokenId(null);
+                              setInitiativeInputs((prev) => {
+                                const next = { ...prev };
+                                delete next[entry.tokenId];
+                                return next;
+                              });
+                            }}
+                          >
+                            Cancel
+                          </Button>
+                        </Flex>
+                      ) : (
+                        // Display Mode
+                        <Flex justify="space-between" align="center">
+                          <HStack flex={1} spacing={3}>
+                            <Badge
+                              colorScheme={entry.isActive ? "blue" : "gray"}
+                              fontSize="lg"
+                              px={3}
+                              py={1}
+                              borderRadius="full"
+                              minWidth="50px"
+                              textAlign="center"
+                            >
+                              {entry.initiativeValue}
+                            </Badge>
+                            <VStack align="start" spacing={0} flex={1}>
+                              <Text fontWeight="bold" fontSize="sm">
+                                {getTokenLabel(entry.tokenId)}
+                              </Text>
+                              {entry.isActive && (
+                                <Badge colorScheme="blue" fontSize="xs">
+                                  ▶ Active Turn
+                                </Badge>
+                              )}
+                            </VStack>
+                          </HStack>
+                          <HStack spacing={1}>
+                            <Tooltip label="Edit initiative">
+                              <IconButton
+                                aria-label="Edit initiative"
+                                icon={<Icon.Edit boxSize="14px" />}
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => {
+                                  setEditingTokenId(entry.tokenId);
+                                  setInitiativeInputs((prev) => ({
+                                    ...prev,
+                                    [entry.tokenId]: String(
+                                      entry.initiativeValue
+                                    ),
+                                  }));
+                                }}
+                              />
+                            </Tooltip>
+                            <Tooltip label="Remove from initiative">
+                              <IconButton
+                                aria-label="Remove from initiative"
+                                icon={<Icon.Trash boxSize="14px" />}
+                                size="sm"
+                                variant="ghost"
+                                colorScheme="red"
+                                onClick={() => handleRemove(entry.tokenId)}
+                              />
+                            </Tooltip>
+                          </HStack>
+                        </Flex>
+                      )}
+                    </InitiativeListItem>
+                  ))}
+                </VStack>
+              )}
+            </Box>
+
+            {/* Divider */}
+            <Divider />
+
+            {/* Unassigned Tokens - Bottom Section */}
+            <Box>
+              <Heading size="sm" mb={2}>
+                Available Tokens ({unassignedTokens.length})
+              </Heading>
+              {unassignedTokens.length === 0 ? (
+                <Box
+                  textAlign="center"
+                  py={4}
+                  color="gray.500"
+                  bg="gray.50"
+                  borderRadius="md"
+                >
+                  <Text fontSize="sm">
+                    All tokens assigned or no tokens on map
+                  </Text>
+                </Box>
+              ) : (
+                <VStack spacing={2} align="stretch">
+                  {unassignedTokens.map((token: any) => (
+                    <Box
+                      key={token.id}
+                      p={2}
+                      border="1px solid"
+                      borderColor="gray.200"
+                      borderRadius="md"
+                      bg="white"
+                      _hover={{ bg: "gray.50", borderColor: "gray.300" }}
+                    >
+                      <HStack justify="space-between">
+                        <HStack flex={1} spacing={2}>
+                          <Box
+                            w="24px"
+                            h="24px"
+                            borderRadius="full"
+                            bg={token.color || "#999"}
+                            border="1px solid gray"
+                            flexShrink={0}
+                          />
+                          <Text fontSize="sm" fontWeight="500" isTruncated>
+                            {token.label || `Token ${token.id.substring(0, 8)}`}
+                          </Text>
+                        </HStack>
                         <Button
                           size="sm"
                           colorScheme="blue"
-                          onClick={() => handleSetInitiative(entry.tokenId)}
-                        >
-                          Set
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
+                          variant="outline"
                           onClick={() => {
-                            setEditingTokenId(null);
-                            setInitiativeInputs((prev) => {
-                              const next = { ...prev };
-                              delete next[entry.tokenId];
-                              return next;
-                            });
+                            setEditingTokenId(token.id);
+                            setInitiativeInputs((prev) => ({
+                              ...prev,
+                              [token.id]: "10",
+                            }));
                           }}
                         >
-                          Cancel
+                          Add
                         </Button>
-                      </Flex>
-                    ) : (
-                      // Display Mode
-                      <Flex justify="space-between" align="center">
-                        <HStack flex={1} spacing={3}>
-                          <Badge
-                            colorScheme={entry.isActive ? "blue" : "gray"}
-                            fontSize="lg"
-                            px={3}
-                            py={1}
-                            borderRadius="full"
-                            minWidth="50px"
-                            textAlign="center"
+                      </HStack>
+                      {editingTokenId === token.id && (
+                        <HStack gap={2} mt={2}>
+                          <NumberInput
+                            value={initiativeInputs[token.id] || "10"}
+                            onChange={(valueString) =>
+                              setInitiativeInputs((prev) => ({
+                                ...prev,
+                                [token.id]: valueString,
+                              }))
+                            }
+                            size="sm"
+                            flex={1}
                           >
-                            {entry.initiativeValue}
-                          </Badge>
-                          <VStack align="start" spacing={0} flex={1}>
-                            <Text fontWeight="bold" fontSize="sm">
-                              Token {entry.tokenId.substring(0, 8)}
-                            </Text>
-                            {entry.isActive && (
-                              <Badge colorScheme="blue" fontSize="xs">
-                                ▶ Active Turn
-                              </Badge>
-                            )}
-                          </VStack>
+                            <NumberInputField placeholder="Initiative" />
+                            <NumberInputStepper>
+                              <NumberIncrementStepper />
+                              <NumberDecrementStepper />
+                            </NumberInputStepper>
+                          </NumberInput>
+                          <Button
+                            size="sm"
+                            colorScheme="green"
+                            onClick={() => handleSetInitiative(token.id)}
+                          >
+                            Set
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => {
+                              setEditingTokenId(null);
+                              setInitiativeInputs((prev) => {
+                                const next = { ...prev };
+                                delete next[token.id];
+                                return next;
+                              });
+                            }}
+                          >
+                            Cancel
+                          </Button>
                         </HStack>
-                        <HStack spacing={1}>
-                          <Tooltip label="Edit initiative">
-                            <IconButton
-                              aria-label="Edit initiative"
-                              icon={<Icon.Edit boxSize="14px" />}
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => {
-                                setEditingTokenId(entry.tokenId);
-                                setInitiativeInputs((prev) => ({
-                                  ...prev,
-                                  [entry.tokenId]: String(
-                                    entry.initiativeValue
-                                  ),
-                                }));
-                              }}
-                            />
-                          </Tooltip>
-                          <Tooltip label="Remove from initiative">
-                            <IconButton
-                              aria-label="Remove from initiative"
-                              icon={<Icon.Trash boxSize="14px" />}
-                              size="sm"
-                              variant="ghost"
-                              colorScheme="red"
-                              onClick={() => handleRemove(entry.tokenId)}
-                            />
-                          </Tooltip>
-                        </HStack>
-                      </Flex>
-                    )}
-                  </InitiativeListItem>
-                ))}
-              </List>
-            )}
+                      )}
+                    </Box>
+                  ))}
+                </VStack>
+              )}
+            </Box>
           </VStack>
         </Box>
       }

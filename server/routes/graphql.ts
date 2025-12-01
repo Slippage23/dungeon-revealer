@@ -123,6 +123,11 @@ export default ({
     socketServer,
     isLazy: true,
     getParameter: ({ socket }) => {
+      console.log(
+        "[Socket.IO GraphQL] New GraphQL connection from socket:",
+        socket.id
+      );
+
       const contextValue: GraphQLContextType = {
         chat,
         user,

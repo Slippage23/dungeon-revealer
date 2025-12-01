@@ -72,9 +72,11 @@ import {
 } from "../map-tools/token-marker-map-tool";
 import { NoteWindowActionsContext } from "./token-info-aside";
 import { ColorPickerInput } from "../color-picker-input";
+import { MapIdProvider, MapIdContext } from "./note-editor/map-context";
 import { buttonGroup, useControls, useCreateStore, LevaInputs } from "leva";
 import { levaPluginIconPicker } from "../leva-plugin/leva-plugin-icon-picker";
 import { ThemedLevaPanel } from "../themed-leva-panel";
+import { MapCombatBar } from "./map-combat-bar";
 import {
   ContextMenuStoreProvider,
   ContextMenuStoreContext,
@@ -571,8 +573,8 @@ const activeDmMapToolIdModel: PersistedStateModel<
 > = {
   encode: (value) => (value === null ? "" : value),
   decode: (value) => {
-    // If value is null, treat it as uninitialized and return default
-    if (value === null) {
+    // If value is null or empty string, treat it as uninitialized and return default
+    if (value === null || value === "") {
       return DragPanZoomMapTool.id;
     }
     return pipe(
@@ -603,6 +605,9 @@ const DMMapFragment = graphql`
       columnWidth
       columnHeight
     }
+    tokens {
+      id
+    }
     ...mapView_MapFragment
     ...mapContextMenuRenderer_MapFragment
     ...dmMap_GridSettingButton_MapFragment
@@ -624,6 +629,7 @@ export const DmMap = (props: {
     id: string,
     changes: Omit<Partial<MapTokenEntity>, "id">
   ) => void;
+  removeAllTokens: (tokenIds?: string[]) => void;
   controlRef: React.MutableRefObject<MapControlInterface | null>;
   onTokenSelect?: (tokenId: string | null) => void;
   onShowInitiativeTracker?: () => void;
@@ -741,322 +747,399 @@ export const DmMap = (props: {
     );
 
   return (
-    <FlatContextProvider
-      value={[
-        [ContextMenuStoreProvider, {}] as ComponentWithPropsTuple<
-          React.ComponentProps<typeof ContextMenuStoreProvider>
-        >,
-        [SharedTokenStateProvider, {}] as ComponentWithPropsTuple<
-          React.ComponentProps<typeof SharedTokenStateProvider>
-        >,
-        [
-          MarkAreaToolContext.Provider,
-          {
-            value: {
-              onMarkArea: ([x, y]) => {
-                mapPing({
-                  variables: {
-                    input: {
-                      mapId: map.id,
-                      x,
-                      y,
+    <MapViewContainer>
+      <FlatContextProvider
+        value={[
+          [ContextMenuStoreProvider, {}] as ComponentWithPropsTuple<
+            React.ComponentProps<typeof ContextMenuStoreProvider>
+          >,
+          [SharedTokenStateProvider, {}] as ComponentWithPropsTuple<
+            React.ComponentProps<typeof SharedTokenStateProvider>
+          >,
+          [
+            MarkAreaToolContext.Provider,
+            {
+              value: {
+                onMarkArea: ([x, y]) => {
+                  mapPing({
+                    variables: {
+                      input: {
+                        mapId: map.id,
+                        x,
+                        y,
+                      },
                     },
-                  },
-                });
+                  });
+                },
               },
             },
-          },
-        ] as ComponentWithPropsTuple<
-          React.ComponentProps<typeof MarkAreaToolContext.Provider>
-        >,
-        [
-          BrushToolContextProvider,
-          {
-            onDrawEnd: (canvas) => {
-              // TODO: toggle between instant send and incremental send
-              props.saveFogProgress(canvas);
+          ] as ComponentWithPropsTuple<
+            React.ComponentProps<typeof MarkAreaToolContext.Provider>
+          >,
+          [
+            BrushToolContextProvider,
+            {
+              onDrawEnd: (canvas) => {
+                // TODO: toggle between instant send and incremental send
+                props.saveFogProgress(canvas);
+              },
             },
-          },
-        ] as ComponentWithPropsTuple<
-          React.ComponentProps<typeof BrushToolContextProvider>
-        >,
-        [
-          ConfigureGridMapToolContext.Provider,
-          {
-            value: {
-              state: configureGridMapToolState,
-              setState: setConfigureGridMapToolState,
+          ] as ComponentWithPropsTuple<
+            React.ComponentProps<typeof BrushToolContextProvider>
+          >,
+          [
+            ConfigureGridMapToolContext.Provider,
+            {
+              value: {
+                state: configureGridMapToolState,
+                setState: setConfigureGridMapToolState,
+              },
             },
-          },
-        ] as ComponentWithPropsTuple<
-          React.ComponentProps<typeof ConfigureGridMapToolContext.Provider>
-        >,
-        [AreaSelectContextProvider, {}],
-        [
-          TokenMarkerContextProvider,
-          { currentMapId: map.id },
-        ] as ComponentWithPropsTuple<
-          React.ComponentProps<typeof TokenMarkerContextProvider>
-        >,
-        [
-          UpdateTokenContext.Provider,
-          { value: props.updateToken },
-        ] as ComponentWithPropsTuple<
-          React.ComponentProps<typeof UpdateTokenContext["Provider"]>
-        >,
-        [
-          IsDungeonMasterContext.Provider,
-          { value: true },
-        ] as ComponentWithPropsTuple<
-          React.ComponentProps<typeof IsDungeonMasterContext["Provider"]>
-        >,
-      ]}
-    >
-      <React.Suspense fallback={null}>
-        <LazyLoadedMapView
-          map={map}
-          activeTool={activeTool}
-          controlRef={controlRef}
-          sharedContexts={[
-            MarkAreaToolContext,
-            BrushToolContext,
-            ConfigureGridMapToolContext,
-            AreaSelectContext,
-            TokenMarkerContext,
-            NoteWindowActionsContext,
-            ReactRelayContext,
-            UpdateTokenContext,
-            IsDungeonMasterContext,
-            ContextMenuStoreContext,
-            SharedTokenStateStoreContext,
-          ]}
-          fogOpacity={0.5}
-        />
-      </React.Suspense>
+          ] as ComponentWithPropsTuple<
+            React.ComponentProps<typeof ConfigureGridMapToolContext.Provider>
+          >,
+          [AreaSelectContextProvider, {}],
+          [
+            TokenMarkerContextProvider,
+            { currentMapId: map.id },
+          ] as ComponentWithPropsTuple<
+            React.ComponentProps<typeof TokenMarkerContextProvider>
+          >,
+          [
+            UpdateTokenContext.Provider,
+            { value: props.updateToken },
+          ] as ComponentWithPropsTuple<
+            React.ComponentProps<typeof UpdateTokenContext["Provider"]>
+          >,
+          [
+            IsDungeonMasterContext.Provider,
+            { value: true },
+          ] as ComponentWithPropsTuple<
+            React.ComponentProps<typeof IsDungeonMasterContext["Provider"]>
+          >,
+          [MapIdProvider, { mapId: map.id }] as ComponentWithPropsTuple<
+            React.ComponentProps<typeof MapIdProvider>
+          >,
+        ]}
+      >
+        <MapCombatBar mapId={map.id} />
+        <React.Suspense fallback={null}>
+          <LazyLoadedMapView
+            map={map}
+            activeTool={activeTool}
+            controlRef={controlRef}
+            sharedContexts={[
+              MarkAreaToolContext,
+              BrushToolContext,
+              ConfigureGridMapToolContext,
+              AreaSelectContext,
+              TokenMarkerContext,
+              NoteWindowActionsContext,
+              ReactRelayContext,
+              UpdateTokenContext,
+              IsDungeonMasterContext,
+              ContextMenuStoreContext,
+              SharedTokenStateStoreContext,
+              MapIdContext,
+            ]}
+            fogOpacity={0.5}
+          />
+        </React.Suspense>
 
-      {toolOverride !== ConfigureGridMapTool ? (
-        <>
-          <LeftToolbarContainer>
-            <Toolbar>
-              <Toolbar.Logo />
-              <Toolbar.Group divider>
-                {dmTools.map((record) => (
-                  <MenuItemRenderer
-                    key={record.tool.id}
-                    record={record}
-                    isActive={record.tool === userSelectedTool}
-                    setActiveTool={() => {
-                      setActiveToolId(record.tool.id);
-                    }}
-                  />
-                ))}
-              </Toolbar.Group>
-              <Toolbar.Group divider>
-                <ShroudRevealSettings />
-              </Toolbar.Group>
-              <Toolbar.Group divider>
-                <Toolbar.Item isActive>
-                  <Toolbar.Button
-                    onClick={() =>
-                      showDialog({
-                        header: "Shroud All",
-                        body: "Do you really want to shroud the whole map?",
-                        onConfirm: () => {
-                          // TODO: this should be less verbose
-                          const context = controlRef.current?.getContext();
-                          if (!context) {
-                            return;
-                          }
-                          const canvasContext =
-                            context.fogCanvas.getContext("2d")!;
-                          applyFogRectangle(
-                            FogMode.shroud,
-                            [0, 0],
-                            [context.fogCanvas.width, context.fogCanvas.height],
-                            canvasContext
-                          );
-                          context.fogTexture.needsUpdate = true;
-                          props.saveFogProgress(context.fogCanvas);
-                        },
-                      })
-                    }
-                  >
-                    <Icon.Droplet fill="currentColor" boxSize="20px" />
-                    <Icon.Label>Shroud All</Icon.Label>
-                  </Toolbar.Button>
-                </Toolbar.Item>
-                <Toolbar.Item isActive>
-                  <Toolbar.Button
-                    onClick={() =>
-                      showDialog({
-                        header: "Clear All",
-                        body: "Do you really want to clear the whole map?",
-                        onConfirm: () => {
-                          // TODO: this should be less verbose
-                          const context = controlRef.current?.getContext();
-                          if (!context) {
-                            return;
-                          }
-                          const canvasContext =
-                            context.fogCanvas.getContext("2d")!;
-                          applyFogRectangle(
-                            FogMode.clear,
-                            [0, 0],
-                            [context.fogCanvas.width, context.fogCanvas.height],
-                            canvasContext
-                          );
-                          context.fogTexture.needsUpdate = true;
-                          props.saveFogProgress(context.fogCanvas);
-                        },
-                      })
-                    }
-                  >
-                    <Icon.Droplet boxSize="20px" />
-                    <Icon.Label>Clear All</Icon.Label>
-                  </Toolbar.Button>
-                </Toolbar.Item>
-              </Toolbar.Group>
-            </Toolbar>
-          </LeftToolbarContainer>
-          <BottomToolbarContainer>
-            <Toolbar horizontal>
-              <Toolbar.Group>
-                <GridSettingButton
-                  map={map}
-                  enterConfigureGridMode={() => {
-                    setToolOverride(ConfigureGridMapTool);
-                  }}
-                />
-                <Toolbar.Item isActive>
-                  <Toolbar.Button
-                    onClick={() => {
-                      props.showMapModal();
-                    }}
-                  >
-                    <Icon.Map boxSize="20px" />
-                    <Icon.Label>Map Library</Icon.Label>
-                  </Toolbar.Button>
-                </Toolbar.Item>
-                <Toolbar.Item isActive>
-                  <Toolbar.Button
-                    onClick={() => {
-                      props.openMediaLibrary();
-                    }}
-                  >
-                    <Icon.Image boxSize="20px" />
-                    <Icon.Label>Media Library</Icon.Label>
-                  </Toolbar.Button>
-                </Toolbar.Item>
-                <Toolbar.Item isActive>
-                  <Toolbar.Button
-                    onClick={() => {
-                      props.openNotes();
-                    }}
-                  >
-                    <Icon.BookOpen boxSize="20px" />
-                    <Icon.Label>Notes</Icon.Label>
-                  </Toolbar.Button>
-                </Toolbar.Item>
-                <Toolbar.Item isActive>
-                  <Toolbar.Button
-                    onClick={() => {
-                      props.onShowInitiativeTracker?.();
-                    }}
-                  >
-                    <Icon.Dice boxSize="20px" />
-                    <Icon.Label>Initiative</Icon.Label>
-                  </Toolbar.Button>
-                </Toolbar.Item>
-              </Toolbar.Group>
-            </Toolbar>
-            <MarginLeftDiv />
-            <Toolbar horizontal>
-              <Toolbar.Group>
-                <Toolbar.Item>
-                  <ConditionalWrap
-                    condition={props.liveMapId !== null}
-                    wrap={(children) => (
-                      <Toolbar.Button onClick={props.hideMap}>
-                        {children}
-                      </Toolbar.Button>
-                    )}
-                  >
-                    <Icon.Pause
-                      stroke={
-                        props.liveMapId !== null
-                          ? "hsl(360, 83%, 62%)"
-                          : "hsl(211, 27%, 70%)"
-                      }
-                      boxSize="20px"
+        {toolOverride !== ConfigureGridMapTool ? (
+          <>
+            <LeftToolbarContainer>
+              <Toolbar>
+                <Toolbar.Logo />
+                <Toolbar.Group divider>
+                  {dmTools.map((record) => (
+                    <MenuItemRenderer
+                      key={record.tool.id}
+                      record={record}
+                      isActive={record.tool === userSelectedTool}
+                      setActiveTool={() => {
+                        setActiveToolId(record.tool.id);
+                      }}
                     />
-                    <Icon.Label
-                      color={
-                        props.liveMapId !== null
-                          ? "hsl(360, 83%, 62%)"
-                          : "hsl(211, 27%, 70%)"
+                  ))}
+                </Toolbar.Group>
+                <Toolbar.Group divider>
+                  <ShroudRevealSettings />
+                </Toolbar.Group>
+                <Toolbar.Group divider>
+                  <Toolbar.Item isActive>
+                    <Toolbar.Button
+                      onClick={() =>
+                        showDialog({
+                          header: "Shroud All",
+                          body: "Do you really want to shroud the whole map?",
+                          onConfirm: () => {
+                            // TODO: this should be less verbose
+                            const context = controlRef.current?.getContext();
+                            if (!context) {
+                              return;
+                            }
+                            const canvasContext =
+                              context.fogCanvas.getContext("2d")!;
+                            applyFogRectangle(
+                              FogMode.shroud,
+                              [0, 0],
+                              [
+                                context.fogCanvas.width,
+                                context.fogCanvas.height,
+                              ],
+                              canvasContext
+                            );
+                            context.fogTexture.needsUpdate = true;
+                            props.saveFogProgress(context.fogCanvas);
+                          },
+                        })
                       }
                     >
-                      Stop Sharing
-                    </Icon.Label>
-                  </ConditionalWrap>
-                </Toolbar.Item>
-                {isCurrentMapLive ? (
-                  <Toolbar.Item>
-                    <Icon.Radio stroke="hsl(160, 51%, 49%)" boxSize="20px" />
-                    <Icon.Label color="hsl(160, 51%, 49%)">Live</Icon.Label>
-                  </Toolbar.Item>
-                ) : isOtherMapLive ? (
-                  <Toolbar.Item>
-                    <Icon.Radio stroke="hsl(48, 94%, 68%)" boxSize="20px" />
-                    <Icon.Label color="hsl(48, 94%, 68%)">Live</Icon.Label>
-                  </Toolbar.Item>
-                ) : (
-                  <Toolbar.Item>
-                    <Icon.Radio stroke="hsl(211, 27%, 70%)" boxSize="20px" />
-                    <Icon.Label color="hsl(211, 27%, 70%)">Not Live</Icon.Label>
-                  </Toolbar.Item>
-                )}
-                {asyncClipBoardApi ? (
-                  <Toolbar.Item isActive>
-                    <Toolbar.Button onClick={copyMapToClipboard}>
-                      <Icon.Clipboard boxSize="20px" />
-                      <Icon.Label>Clipboard</Icon.Label>
+                      <Icon.Droplet fill="currentColor" boxSize="20px" />
+                      <Icon.Label>Shroud All</Icon.Label>
                     </Toolbar.Button>
                   </Toolbar.Item>
-                ) : null}
-                <Toolbar.Item isActive>
-                  <Toolbar.Button
-                    onClick={() => {
-                      const context = controlRef.current?.getContext();
-                      if (!context) {
-                        return;
+                  <Toolbar.Item isActive>
+                    <Toolbar.Button
+                      onClick={() =>
+                        showDialog({
+                          header: "Clear All",
+                          body: "Do you really want to clear the whole map?",
+                          onConfirm: () => {
+                            // TODO: this should be less verbose
+                            const context = controlRef.current?.getContext();
+                            if (!context) {
+                              return;
+                            }
+                            const canvasContext =
+                              context.fogCanvas.getContext("2d")!;
+                            applyFogRectangle(
+                              FogMode.clear,
+                              [0, 0],
+                              [
+                                context.fogCanvas.width,
+                                context.fogCanvas.height,
+                              ],
+                              canvasContext
+                            );
+                            context.fogTexture.needsUpdate = true;
+                            props.saveFogProgress(context.fogCanvas);
+                          },
+                        })
                       }
-                      props.sendLiveMap(context.fogCanvas);
+                    >
+                      <Icon.Droplet boxSize="20px" />
+                      <Icon.Label>Clear All</Icon.Label>
+                    </Toolbar.Button>
+                  </Toolbar.Item>
+                  <Toolbar.Item isActive>
+                    <Toolbar.Button
+                      onClick={() =>
+                        showDialog({
+                          header: "Reset Map",
+                          body: "This will clear all fog-of-war and remove all tokens from the map. Are you sure?",
+                          onConfirm: () => {
+                            // Clear fog-of-war
+                            const context = controlRef.current?.getContext();
+                            if (context) {
+                              const canvasContext =
+                                context.fogCanvas.getContext("2d")!;
+                              applyFogRectangle(
+                                FogMode.clear,
+                                [0, 0],
+                                [
+                                  context.fogCanvas.width,
+                                  context.fogCanvas.height,
+                                ],
+                                canvasContext
+                              );
+                              context.fogTexture.needsUpdate = true;
+                              props.saveFogProgress(context.fogCanvas);
+                            }
+                            // Remove all tokens
+                            console.log(
+                              "[DmMap Reset] Full map object:",
+                              JSON.stringify(
+                                map,
+                                (key, value) => {
+                                  if (key.startsWith("__")) return undefined;
+                                  return value;
+                                },
+                                2
+                              )
+                            );
+                            const mapAsAny = map as any;
+                            console.log(
+                              "[DmMap Reset] map.tokens from mapAsAny:",
+                              mapAsAny.tokens
+                            );
+                            console.log(
+                              "[DmMap Reset] Checking Object.keys(map):",
+                              Object.keys(map)
+                            );
+                            const tokenIds =
+                              (map as any).tokens?.map(
+                                (token: any) => token.id
+                              ) ?? [];
+                            console.log(
+                              "[DmMap Reset] tokenIds to pass:",
+                              tokenIds
+                            );
+                            props.removeAllTokens(tokenIds);
+                          },
+                        })
+                      }
+                    >
+                      <Icon.RotateCCW boxSize="20px" />
+                      <Icon.Label>Reset Map</Icon.Label>
+                    </Toolbar.Button>
+                  </Toolbar.Item>
+                </Toolbar.Group>
+              </Toolbar>
+            </LeftToolbarContainer>
+            <BottomToolbarContainer>
+              <Toolbar horizontal>
+                <Toolbar.Group>
+                  <GridSettingButton
+                    map={map}
+                    enterConfigureGridMode={() => {
+                      setToolOverride(ConfigureGridMapTool);
                     }}
-                  >
-                    <Icon.Send boxSize="20px" />
-                    <Icon.Label>Send</Icon.Label>
-                  </Toolbar.Button>
-                </Toolbar.Item>
-              </Toolbar.Group>
-            </Toolbar>
-          </BottomToolbarContainer>
-        </>
-      ) : (
-        <GridConfigurator
-          map={map}
-          onAbort={() => {
-            setToolOverride(null);
-          }}
-          onConfirm={() => {
-            setToolOverride(null);
-          }}
-        />
-      )}
-      {confirmDialogNode}
-      <SharedTokenMenu currentMapId={map.id} />
-      <ContextMenuRenderer map={map} />
-    </FlatContextProvider>
+                  />
+                  <Toolbar.Item isActive>
+                    <Toolbar.Button
+                      onClick={() => {
+                        props.showMapModal();
+                      }}
+                    >
+                      <Icon.Map boxSize="20px" />
+                      <Icon.Label>Map Library</Icon.Label>
+                    </Toolbar.Button>
+                  </Toolbar.Item>
+                  <Toolbar.Item isActive>
+                    <Toolbar.Button
+                      onClick={() => {
+                        props.openMediaLibrary();
+                      }}
+                    >
+                      <Icon.Image boxSize="20px" />
+                      <Icon.Label>Media Library</Icon.Label>
+                    </Toolbar.Button>
+                  </Toolbar.Item>
+                  <Toolbar.Item isActive>
+                    <Toolbar.Button
+                      onClick={() => {
+                        props.openNotes();
+                      }}
+                    >
+                      <Icon.BookOpen boxSize="20px" />
+                      <Icon.Label>Notes</Icon.Label>
+                    </Toolbar.Button>
+                  </Toolbar.Item>
+                  <Toolbar.Item isActive>
+                    <Toolbar.Button
+                      onClick={() => {
+                        props.onShowInitiativeTracker?.();
+                      }}
+                    >
+                      <Icon.Dice boxSize="20px" />
+                      <Icon.Label>Initiative</Icon.Label>
+                    </Toolbar.Button>
+                  </Toolbar.Item>
+                </Toolbar.Group>
+              </Toolbar>
+              <MarginLeftDiv />
+              <Toolbar horizontal>
+                <Toolbar.Group>
+                  <Toolbar.Item>
+                    <ConditionalWrap
+                      condition={props.liveMapId !== null}
+                      wrap={(children) => (
+                        <Toolbar.Button onClick={props.hideMap}>
+                          {children}
+                        </Toolbar.Button>
+                      )}
+                    >
+                      <Icon.Pause
+                        stroke={
+                          props.liveMapId !== null
+                            ? "hsl(360, 83%, 62%)"
+                            : "hsl(211, 27%, 70%)"
+                        }
+                        boxSize="20px"
+                      />
+                      <Icon.Label
+                        color={
+                          props.liveMapId !== null
+                            ? "hsl(360, 83%, 62%)"
+                            : "hsl(211, 27%, 70%)"
+                        }
+                      >
+                        Stop Sharing
+                      </Icon.Label>
+                    </ConditionalWrap>
+                  </Toolbar.Item>
+                  {isCurrentMapLive ? (
+                    <Toolbar.Item>
+                      <Icon.Radio stroke="hsl(160, 51%, 49%)" boxSize="20px" />
+                      <Icon.Label color="hsl(160, 51%, 49%)">Live</Icon.Label>
+                    </Toolbar.Item>
+                  ) : isOtherMapLive ? (
+                    <Toolbar.Item>
+                      <Icon.Radio stroke="hsl(48, 94%, 68%)" boxSize="20px" />
+                      <Icon.Label color="hsl(48, 94%, 68%)">Live</Icon.Label>
+                    </Toolbar.Item>
+                  ) : (
+                    <Toolbar.Item>
+                      <Icon.Radio stroke="hsl(211, 27%, 70%)" boxSize="20px" />
+                      <Icon.Label color="hsl(211, 27%, 70%)">
+                        Not Live
+                      </Icon.Label>
+                    </Toolbar.Item>
+                  )}
+                  {asyncClipBoardApi ? (
+                    <Toolbar.Item isActive>
+                      <Toolbar.Button onClick={copyMapToClipboard}>
+                        <Icon.Clipboard boxSize="20px" />
+                        <Icon.Label>Clipboard</Icon.Label>
+                      </Toolbar.Button>
+                    </Toolbar.Item>
+                  ) : null}
+                  <Toolbar.Item isActive>
+                    <Toolbar.Button
+                      onClick={() => {
+                        const context = controlRef.current?.getContext();
+                        if (!context) {
+                          return;
+                        }
+                        props.sendLiveMap(context.fogCanvas);
+                      }}
+                    >
+                      <Icon.Send boxSize="20px" />
+                      <Icon.Label>Send</Icon.Label>
+                    </Toolbar.Button>
+                  </Toolbar.Item>
+                </Toolbar.Group>
+              </Toolbar>
+            </BottomToolbarContainer>
+          </>
+        ) : (
+          <GridConfigurator
+            map={map}
+            onAbort={() => {
+              setToolOverride(null);
+            }}
+            onConfirm={() => {
+              setToolOverride(null);
+            }}
+          />
+        )}
+        {confirmDialogNode}
+        <SharedTokenMenu currentMapId={map.id} />
+        <ContextMenuRenderer map={map} />
+      </FlatContextProvider>
+    </MapViewContainer>
   );
 };
 
@@ -1072,6 +1155,13 @@ const LeftToolbarContainer = styled.div`
     top: 1em;
     align-items: start;
   }
+`;
+
+const MapViewContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
 `;
 
 const BottomToolbarContainer = styled.div`

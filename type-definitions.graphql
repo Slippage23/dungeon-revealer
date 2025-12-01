@@ -184,6 +184,12 @@ type Query {
   Get a map by id.
   """
   map(id: ID!): Map
+
+  """
+  Get all tokens on a map by id.
+  """
+  mapTokens(mapId: ID!): [MapToken!]!
+
   noteTemplates(mapId: String!): [NoteTemplate!]!
   noteTemplate(id: String!): NoteTemplate
   noteCategoryTree(mapId: String!): [NoteCategoryNode!]!

@@ -47,17 +47,49 @@ export const updateManyMapToken = (params: {
 export const removeManyMapToken = (params: {
   mapId: string;
   tokenIds: Set<string>;
-}) =>
-  pipe(
+}) => {
+  console.log("[Map-Lib removeManyMapToken] ===== FUNCTION CALLED =====");
+  console.log("[Map-Lib removeManyMapToken] params:", {
+    mapId: params.mapId,
+    tokenIds: Array.from(params.tokenIds),
+    tokenCount: params.tokenIds.size,
+  });
+
+  return pipe(
     auth.requireAdmin(),
-    RT.chainW(() => RT.ask<MapsDependency>()),
-    RT.chainW(
-      (deps) => () => () =>
-        deps.maps.removeTokensById(params.mapId, params.tokenIds)
-    ),
-    RT.chainW(() => invalidateResourcesRT([`Map:${params.mapId}`])),
-    RT.map(() => null)
+    RT.chainW(() => {
+      console.log("[Map-Lib removeManyMapToken] ✓ Auth check passed (admin)");
+      return RT.ask<MapsDependency>();
+    }),
+    RT.chainW((deps) => () => () => {
+      console.log(
+        "[Map-Lib removeManyMapToken] Calling deps.maps.removeTokensById"
+      );
+      console.log(
+        "[Map-Lib removeManyMapToken] deps.maps type:",
+        typeof deps.maps
+      );
+      console.log(
+        "[Map-Lib removeManyMapToken] deps.maps.removeTokensById type:",
+        typeof deps.maps.removeTokensById
+      );
+      const result = deps.maps.removeTokensById(params.mapId, params.tokenIds);
+      console.log(
+        "[Map-Lib removeManyMapToken] removeTokensById returned:",
+        result
+      );
+      return result;
+    }),
+    RT.chainW(() => {
+      console.log("[Map-Lib removeManyMapToken] Calling invalidateResourcesRT");
+      return invalidateResourcesRT([`Map:${params.mapId}`]);
+    }),
+    RT.map(() => {
+      console.log("[Map-Lib removeManyMapToken] ✓ COMPLETE - returning null");
+      return null;
+    })
   );
+};
 
 export const addManyMapToken = (params: {
   mapId: string;

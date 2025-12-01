@@ -16,12 +16,14 @@ npm run relay-compiler
 ```
 
 **What this does:**
+
 - Reads all `graphql` tagged queries in the codebase
 - Generates TypeScript types for each query/mutation
 - Creates files like `tokenStatsPanelTokenDataQuery.graphql.ts`
 - These types are imported in the React components
 
 **Expected output:**
+
 - Should see "Compiled X files" or similar
 - Look for generated files in `src/**/__generated__/` directories
 
@@ -37,6 +39,7 @@ node server-build/index.js
 ```
 
 **Verify migration worked:**
+
 ```bash
 # Open SQLite database
 sqlite3 data/db.sqlite
@@ -57,6 +60,7 @@ PRAGMA user_version;
 Open GraphiQL: http://localhost:3000/graphql
 
 ### Test Query: Token Data
+
 ```graphql
 query {
   tokenData(tokenId: "test-token-123") {
@@ -69,17 +73,20 @@ query {
 ```
 
 ### Test Mutation: Create Token Data
+
 ```graphql
 mutation {
-  upsertTokenData(input: {
-    tokenId: "test-token-123"
-    mapId: "test-map-1"
-    currentHp: 25
-    maxHp: 30
-    tempHp: 5
-    armorClass: 15
-    conditions: [POISONED]
-  }) {
+  upsertTokenData(
+    input: {
+      tokenId: "test-token-123"
+      mapId: "test-map-1"
+      currentHp: 25
+      maxHp: 30
+      tempHp: 5
+      armorClass: 15
+      conditions: [POISONED]
+    }
+  ) {
     id
     currentHp
     conditions
@@ -88,13 +95,16 @@ mutation {
 ```
 
 ### Test Combat State
+
 ```graphql
 mutation {
-  setInitiative(input: {
-    mapId: "test-map-1"
-    tokenId: "test-token-123"
-    initiativeValue: 18
-  }) {
+  setInitiative(
+    input: {
+      mapId: "test-map-1"
+      tokenId: "test-token-123"
+      initiativeValue: 18
+    }
+  ) {
     id
     initiativeValue
   }
@@ -116,15 +126,19 @@ query {
 Edit `src/dm-area/dm-map.tsx`:
 
 ### 4a. Add imports at the top
+
 ```typescript
 import { TokenStatsPanel } from "./token-stats-panel";
 import { InitiativeTracker } from "./initiative-tracker";
 ```
 
 ### 4b. Add state for panels (inside DmMap component function)
+
 ```typescript
 const [showTokenStats, setShowTokenStats] = React.useState(false);
-const [selectedTokenId, setSelectedTokenId] = React.useState<string | null>(null);
+const [selectedTokenId, setSelectedTokenId] = React.useState<string | null>(
+  null
+);
 const [showInitiative, setShowInitiative] = React.useState(false);
 ```
 
@@ -134,7 +148,9 @@ Look for the toolbar with existing buttons (near `<Toolbar>` or button group).
 Add these buttons:
 
 ```typescript
-{/* Token Stats Button */}
+{
+  /* Token Stats Button */
+}
 <Tooltip label="Token Stats">
   <Button.Tertiary
     small
@@ -143,9 +159,11 @@ Add these buttons:
   >
     <Icon.Heart boxSize="16px" />
   </Button.Tertiary>
-</Tooltip>
+</Tooltip>;
 
-{/* Initiative Tracker Button */}
+{
+  /* Initiative Tracker Button */
+}
 <Tooltip label="Initiative Tracker">
   <Button.Tertiary
     small
@@ -154,31 +172,39 @@ Add these buttons:
   >
     <Icon.List boxSize="16px" />
   </Button.Tertiary>
-</Tooltip>
+</Tooltip>;
 ```
 
 ### 4d. Add panels to render (at the end of the component return, before final closing tags)
 
 ```typescript
-{/* Token Stats Panel */}
-{showTokenStats && selectedTokenId && (
-  <TokenStatsPanel
-    tokenId={selectedTokenId}
-    mapId={map.id}
-    onClose={() => {
-      setShowTokenStats(false);
-      setSelectedTokenId(null);
-    }}
-  />
-)}
+{
+  /* Token Stats Panel */
+}
+{
+  showTokenStats && selectedTokenId && (
+    <TokenStatsPanel
+      tokenId={selectedTokenId}
+      mapId={map.id}
+      onClose={() => {
+        setShowTokenStats(false);
+        setSelectedTokenId(null);
+      }}
+    />
+  );
+}
 
-{/* Initiative Tracker */}
-{showInitiative && (
-  <InitiativeTracker
-    mapId={map.id}
-    onClose={() => setShowInitiative(false)}
-  />
-)}
+{
+  /* Initiative Tracker */
+}
+{
+  showInitiative && (
+    <InitiativeTracker
+      mapId={map.id}
+      onClose={() => setShowInitiative(false)}
+    />
+  );
+}
 ```
 
 ### 4e. Wire up token click handler
@@ -187,6 +213,7 @@ Find where tokens are rendered on the map and add click handler.
 You'll need to find the token rendering code (likely in map-view or a token component).
 
 Example pattern to look for:
+
 ```typescript
 // In token click handler
 onClick={(tokenId) => {
@@ -195,7 +222,7 @@ onClick={(tokenId) => {
 }}
 ```
 
-**Note:** The exact location depends on how tokens are currently rendered. 
+**Note:** The exact location depends on how tokens are currently rendered.
 Look for token rendering logic in `src/map-view.tsx` or related components.
 
 ## Step 5: Add HP Bars to Map (Optional but Recommended)
@@ -205,6 +232,7 @@ This adds visual HP bars above tokens on the map.
 ### Edit `src/map-view.tsx`
 
 ### 5a. Add query for token data
+
 ```typescript
 // Add to imports
 import graphql from "babel-plugin-relay/macro";
@@ -224,6 +252,7 @@ const MapView_TokenDataQuery = graphql`
 ```
 
 ### 5b. Create HP bar component
+
 ```typescript
 const TokenHPBar = ({ tokenId }: { tokenId: string }) => {
   const { data } = useQuery(
@@ -277,7 +306,9 @@ const TokenHPBar = ({ tokenId }: { tokenId: string }) => {
 ```
 
 ### 5c. Render HP bar above each token
+
 Find where tokens are rendered and add:
+
 ```typescript
 <TokenHPBar tokenId={token.id} />
 ```
@@ -287,6 +318,7 @@ Find where tokens are rendered and add:
 ### Manual Test Checklist
 
 1. **Start the application**
+
    ```bash
    npm run start:server:dev
    # In another terminal:
@@ -294,10 +326,12 @@ Find where tokens are rendered and add:
    ```
 
 2. **Open DM interface**
+
    - Navigate to http://localhost:3000
    - Log in as DM
 
 3. **Test Token Stats Panel**
+
    - [ ] Click the Heart icon in toolbar
    - [ ] Token stats panel should appear
    - [ ] Set HP values (e.g., 20/25)
@@ -306,12 +340,14 @@ Find where tokens are rendered and add:
    - [ ] Close and reopen - values should persist
 
 4. **Test Quick Damage/Heal**
+
    - [ ] Enter "5" in damage field
    - [ ] Click "Damage" - HP should reduce by 5
-   - [ ] Enter "3" in heal field  
+   - [ ] Enter "3" in heal field
    - [ ] Click "Heal" - HP should increase by 3
 
 5. **Test Temp HP**
+
    - [ ] Set Temp HP to 10
    - [ ] Click Save
    - [ ] Apply 5 damage
@@ -319,6 +355,7 @@ Find where tokens are rendered and add:
    - [ ] Regular HP should stay the same
 
 6. **Test Conditions**
+
    - [ ] Click "Poisoned" badge - should turn solid
    - [ ] Click "Stunned" badge - should turn solid
    - [ ] Click "Poisoned" again - should turn outline (toggle off)
@@ -326,11 +363,13 @@ Find where tokens are rendered and add:
    - [ ] Reload - conditions should persist
 
 7. **Test Initiative Tracker**
+
    - [ ] Click the List icon in toolbar
    - [ ] Initiative tracker should appear
    - [ ] Should show "No tokens in initiative order"
 
 8. **Add Token to Initiative**
+
    - [ ] Create/select a token with token stats
    - [ ] Click "Edit" on the token in initiative list
    - [ ] Set initiative value (e.g., 18)
@@ -338,6 +377,7 @@ Find where tokens are rendered and add:
    - [ ] Token should appear in list with initiative 18
 
 9. **Test Combat Flow**
+
    - [ ] Add 2-3 tokens with different initiative values
    - [ ] Click "Start Combat"
    - [ ] First token (highest initiative) should be highlighted
@@ -348,6 +388,7 @@ Find where tokens are rendered and add:
    - [ ] Badge should show "Round 2"
 
 10. **Test End Combat**
+
     - [ ] Click "End Combat"
     - [ ] All tokens should be removed from initiative
     - [ ] Should show empty state message
@@ -363,6 +404,7 @@ Find where tokens are rendered and add:
 ### Problem: GraphQL compilation errors
 
 **Solution:**
+
 ```bash
 # Clear Relay cache
 rm -rf src/**/__generated__
@@ -374,6 +416,7 @@ npm run relay-compiler
 ### Problem: "tokenData is not a field on Query"
 
 **Solution:**
+
 - Make sure migration ran (check PRAGMA user_version)
 - Make sure server restarted after adding GraphQL module
 - Run `npm run write-schema` again
@@ -381,6 +424,7 @@ npm run relay-compiler
 ### Problem: Token stats panel doesn't open
 
 **Solution:**
+
 - Check browser console for errors
 - Verify tokenId is being passed correctly
 - Check that GraphQL query in panel has generated types
@@ -388,6 +432,7 @@ npm run relay-compiler
 ### Problem: HP bar not showing
 
 **Solution:**
+
 - Token must have maxHp set in token_data table
 - Check that query is fetching data (browser DevTools Network tab)
 - Verify HP bar component is rendering in correct position
@@ -395,6 +440,7 @@ npm run relay-compiler
 ### Problem: Initiative tracker shows error
 
 **Solution:**
+
 - Verify mapId is correct
 - Check that combatState query works in GraphiQL
 - Look for GraphQL errors in browser console
@@ -402,6 +448,7 @@ npm run relay-compiler
 ### Problem: Database locked error
 
 **Solution:**
+
 ```bash
 # Stop all Node processes
 # Delete database and restart
@@ -428,6 +475,7 @@ Phase 1 is complete when:
 ## Next Steps
 
 After Phase 1 is working:
+
 - **Phase 2:** Enhanced Note System (templates, auto-linking)
 - **Phase 3:** Automation & Macros
 - **Phase 4:** AI Assistant (optional)
@@ -437,6 +485,7 @@ See `ENHANCEMENT_ROADMAP.md` for details on subsequent phases.
 ---
 
 **Need Help?**
+
 - Check `PHASE1_PROGRESS.md` for detailed status
 - Review GraphQL queries in `server/graphql/modules/token-data.ts`
 - Check database schema in `server/migrations/4.ts`

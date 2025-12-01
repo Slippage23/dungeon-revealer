@@ -6,6 +6,7 @@ import { Box, Center } from "@chakra-ui/react";
 import { commitMutation } from "relay-runtime";
 import { useQuery, useRelayEnvironment } from "relay-hooks";
 import graphql from "babel-plugin-relay/macro";
+import { createSocketIOGraphQLClient } from "@n1ru4l/socket-io-graphql-client";
 import { SelectMapModal } from "./select-map-modal";
 import { ImportFileModal } from "./import-file-modal";
 import { MediaLibrary } from "./media-library";
@@ -178,6 +179,151 @@ const Content = ({
       });
     },
     [loadedMapId, localFetch, socket.id]
+  );
+
+  const removeAllTokens = React.useCallback(
+    (tokenIds?: string[]) => {
+      console.log("[RemoveAllTokens] Function called with tokenIds:", tokenIds);
+      console.log("[RemoveAllTokens] loadedMapId:", loadedMapId);
+      console.log("[RemoveAllTokens] socket.connected:", socket?.connected);
+
+      if (!loadedMapId) {
+        console.log(
+          "[RemoveAllTokens] ERROR: loadedMapId is not set, returning"
+        );
+        return;
+      }
+
+      // If tokenIds not provided, fetch them from the REST API
+      let resolvedTokenIds = tokenIds;
+      if (!resolvedTokenIds || resolvedTokenIds.length === 0) {
+        console.log("[RemoveAllTokens] tokenIds empty, fetching from REST API");
+        // Fetch tokens from the REST API endpoint - use /api/map/:id to get JSON metadata
+        fetch(`/api/map/${loadedMapId}`)
+          .then((res) => res.json())
+          .then((mapData) => {
+            console.log(
+              "[RemoveAllTokens] Fetched map data from REST:",
+              mapData
+            );
+            const allTokenIds = (mapData?.tokens || []).map((t: any) => t.id);
+            console.log("[RemoveAllTokens] Extracted token IDs:", allTokenIds);
+
+            if (allTokenIds.length > 0) {
+              // Recursively call removeAllTokens with the fetched IDs
+              removeAllTokens(allTokenIds);
+            } else {
+              console.log("[RemoveAllTokens] No tokens found in map data");
+            }
+          })
+          .catch((err) => {
+            console.error("[RemoveAllTokens] ERROR fetching map data:", err);
+          });
+        return;
+      }
+
+      console.log("[RemoveAllTokens] tokenIds to remove:", resolvedTokenIds);
+
+      if (!resolvedTokenIds || resolvedTokenIds.length === 0) {
+        console.log("[RemoveAllTokens] ERROR: No tokens found, returning");
+        return;
+      }
+
+      const finalTokenIds = resolvedTokenIds;
+
+      // Use Relay environment via context to send the mutation
+      // For now, we'll just call it directly through localFetch with proper formatting
+      const query = `mutation mapTokenRemoveMany($input: MapTokenRemoveManyInput!) {
+      mapTokenRemoveMany(input: $input)
+    }`;
+
+      const variables = {
+        input: {
+          mapId: loadedMapId,
+          tokenIds: finalTokenIds,
+        },
+      };
+
+      console.log("[RemoveAllTokens] GraphQL query:", query);
+      console.log("[RemoveAllTokens] GraphQL variables:", variables);
+      console.log("[RemoveAllTokens] Creating Socket.IO GraphQL client");
+
+      // Use the same socket-based communication that Relay uses
+      let networkInterface;
+      try {
+        networkInterface = createSocketIOGraphQLClient(socket);
+        console.log(
+          "[RemoveAllTokens] Socket.IO GraphQL client created successfully"
+        );
+      } catch (clientError) {
+        console.error(
+          "[RemoveAllTokens] ERROR creating GraphQL client:",
+          clientError
+        );
+        return;
+      }
+
+      console.log("[RemoveAllTokens] Executing GraphQL operation");
+
+      // Execute the GraphQL operation
+      let asyncIterator;
+      try {
+        asyncIterator = networkInterface.execute({
+          operation: query,
+          variables,
+          operationName: "mapTokenRemoveMany",
+        });
+        console.log(
+          "[RemoveAllTokens] GraphQL execute() called, got async iterator:",
+          typeof asyncIterator
+        );
+      } catch (execError) {
+        console.error(
+          "[RemoveAllTokens] ERROR executing GraphQL operation:",
+          execError
+        );
+        return;
+      }
+
+      // Consume the async iterator and handle results
+      console.log(
+        "[RemoveAllTokens] Starting async operation to consume iterator"
+      );
+      (async () => {
+        try {
+          let resultCount = 0;
+          for await (const result of asyncIterator) {
+            resultCount++;
+            console.log(
+              `[RemoveAllTokens] ✅ Received result #${resultCount}:`,
+              JSON.stringify(result, null, 2)
+            );
+
+            const typedResult = result as any;
+            if (typedResult?.data?.mapTokenRemoveMany === true) {
+              console.log(
+                "[RemoveAllTokens] ✅✅✅ SUCCESS: Mutation completed, tokens removed!"
+              );
+            } else if (typedResult?.errors) {
+              console.error(
+                "[RemoveAllTokens] ❌ GraphQL Errors in result:",
+                typedResult.errors
+              );
+            }
+          }
+          console.log(
+            `[RemoveAllTokens] ✅ Iterator finished after ${resultCount} results`
+          );
+        } catch (error) {
+          console.error("[RemoveAllTokens] ❌ ERROR:", error);
+          if (error instanceof Error) {
+            console.error("[RemoveAllTokens] Message:", error.message);
+            console.error("[RemoveAllTokens] Stack:", error.stack);
+          }
+        }
+      })();
+    },
+    [loadedMapId, dmAreaResponse.data, socket]
   );
 
   const dmPasswordRef = React.useRef(dmPassword);
@@ -490,6 +636,7 @@ const Content = ({
                 setMode({ title: "MEDIA_LIBRARY" });
               }}
               updateToken={updateToken}
+              removeAllTokens={removeAllTokens}
               onTokenSelect={setSelectedTokenId}
               onShowInitiativeTracker={() => setShowInitiativeTracker(true)}
             />

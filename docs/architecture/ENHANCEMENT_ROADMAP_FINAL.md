@@ -142,6 +142,7 @@ ENABLE_AI_ASSISTANT=true
 ### Phase 1: Token Management (Estimated: 2-3 weeks)
 
 **Week 1: Backend Foundation**
+
 - [ ] Create `server/migrations/4.ts` - Token data table
 - [ ] Create `server/token-types.ts` - Type definitions
 - [ ] Create `server/token-data-db.ts` - Database layer
@@ -150,6 +151,7 @@ ENABLE_AI_ASSISTANT=true
 - [ ] Test database migrations and queries
 
 **Week 2: Frontend Components**
+
 - [ ] Create `src/dm-area/token-stats-panel.tsx` - Stats UI
 - [ ] Create `src/dm-area/initiative-tracker.tsx` - Initiative UI
 - [ ] Modify `src/map-view.tsx` - Add HP bars and condition overlays
@@ -158,6 +160,7 @@ ENABLE_AI_ASSISTANT=true
 - [ ] Test token stat updates in real-time
 
 **Week 3: Integration & Polish**
+
 - [ ] Add token click handlers to open stats panel
 - [ ] Implement initiative tracking logic
 - [ ] Add keyboard shortcuts for initiative tracker
@@ -168,24 +171,28 @@ ENABLE_AI_ASSISTANT=true
 ### Phase 2: Enhanced Notes (Estimated: 3-4 weeks)
 
 **Week 1: Templates System**
+
 - [ ] Create `server/migrations/5.ts` - Add template fields
 - [ ] Create `server/note-templates.ts` - Template definitions
 - [ ] Modify `server/graphql/modules/notes.ts` - Add template queries
 - [ ] Test template creation
 
 **Week 2: Auto-Linking**
+
 - [ ] Create `server/note-linking.ts` - Linking service
 - [ ] Implement @mention parsing
 - [ ] Add backlinks system
 - [ ] Test link resolution
 
 **Week 3: Categories & Organization**
+
 - [ ] Implement category system in database
 - [ ] Add category queries to GraphQL
 - [ ] Create category filter UI
 - [ ] Test note organization
 
 **Week 4: Frontend Components**
+
 - [ ] Create template selector UI
 - [ ] Add @mention autocomplete
 - [ ] Add category dropdown
@@ -195,6 +202,7 @@ ENABLE_AI_ASSISTANT=true
 ### Phase 3: Automation & Macros (Estimated: 2-3 weeks)
 
 **Week 1: Backend**
+
 - [ ] Create `server/migrations/6.ts` - Macros and triggers
 - [ ] Create `server/macro-types.ts` - Type definitions
 - [ ] Create `server/macro-engine.ts` - Execution engine
@@ -202,6 +210,7 @@ ENABLE_AI_ASSISTANT=true
 - [ ] Test macro execution
 
 **Week 2: Frontend & Integration**
+
 - [ ] Create macro manager UI
 - [ ] Add macro buttons to toolbar
 - [ ] Create trigger configuration UI
@@ -211,6 +220,7 @@ ENABLE_AI_ASSISTANT=true
 ### Phase 4: AI Assistant (Estimated: 1-2 weeks)
 
 **Week 1: Backend Setup**
+
 - [ ] Install `@anthropic-ai/sdk` package
 - [ ] Create `server/ai-assistant.ts` - AI service
 - [ ] Create `server/ai-cache.ts` - Caching system
@@ -219,6 +229,7 @@ ENABLE_AI_ASSISTANT=true
 - [ ] Test API calls and caching
 
 **Week 2: Frontend**
+
 - [ ] Create `src/dm-area/ai-assistant-panel.tsx` - UI
 - [ ] Add AI button to toolbar
 - [ ] Test all generation types
@@ -230,6 +241,7 @@ ENABLE_AI_ASSISTANT=true
 ## Testing Strategy
 
 ### Unit Tests
+
 ```typescript
 // server/token-data-db.test.ts
 describe("TokenDataDB", () => {
@@ -259,12 +271,14 @@ describe("AICache", () => {
 ```
 
 ### Integration Tests
+
 - Test token stats panel with real GraphQL
 - Test initiative tracker with multiple tokens
 - Test AI assistant with mock responses
 - Test note linking across multiple notes
 
 ### Manual Testing Checklist
+
 - [ ] Create token with stats
 - [ ] Apply damage and healing
 - [ ] Add/remove conditions
@@ -350,25 +364,27 @@ nano .env
 
 **Scenario: Active DM, weekly sessions**
 
-| Feature | Usage/Session | Cost/Use | Monthly Cost |
-|---------|--------------|----------|--------------|
-| NPC Generation | 5 NPCs | $0.01 | $0.20 |
-| Monster Stats | 3 monsters | $0.02 | $0.24 |
-| Location Descriptions | 2 locations | $0.01 | $0.08 |
-| Plot Hooks | 1 request | $0.01 | $0.04 |
-| Combat Balance | 2 checks | $0.005 | $0.04 |
-| **Total** | | | **~$0.60/month** |
+| Feature               | Usage/Session | Cost/Use | Monthly Cost     |
+| --------------------- | ------------- | -------- | ---------------- |
+| NPC Generation        | 5 NPCs        | $0.01    | $0.20            |
+| Monster Stats         | 3 monsters    | $0.02    | $0.24            |
+| Location Descriptions | 2 locations   | $0.01    | $0.08            |
+| Plot Hooks            | 1 request     | $0.01    | $0.04            |
+| Combat Balance        | 2 checks      | $0.005   | $0.04            |
+| **Total**             |               |          | **~$0.60/month** |
 
 **With Caching (50% hit rate after month 1): ~$0.30/month**
 
 ### Cost Saving Tips
 
 1. **Use Cache Effectively**
+
    - Common monsters (goblins, orcs) cached after first use
    - Standard NPCs (innkeeper, guard) reusable
    - Generic locations cached
 
 2. **Batch Requests**
+
    - Generate multiple NPCs in prep session
    - Pre-generate common monster stats
    - Cache during downtime
@@ -414,6 +430,7 @@ CREATE INDEX idx_ai_cache_type ON ai_cache(type);
 ### For DMs: Quick Start Guide
 
 #### Token Management
+
 1. Click any token on the map
 2. Stats panel opens automatically
 3. Enter HP, AC, Speed, Initiative
@@ -421,6 +438,7 @@ CREATE INDEX idx_ai_cache_type ON ai_cache(type);
 5. Apply damage/healing with quick buttons
 
 #### Initiative Tracker
+
 1. Click 📋 button in toolbar
 2. Set initiative for each token
 3. Click "Next Turn" to advance
@@ -428,6 +446,7 @@ CREATE INDEX idx_ai_cache_type ON ai_cache(type);
 5. Click token name to edit stats mid-combat
 
 #### AI Assistant
+
 1. Click 🤖 button in toolbar
 2. Choose NPC/Monster/Location tab
 3. Fill in details (optional)
@@ -436,6 +455,7 @@ CREATE INDEX idx_ai_cache_type ON ai_cache(type);
 6. Common requests are cached (free after first use!)
 
 #### Note Templates
+
 1. Create new note
 2. Click "From Template"
 3. Choose template type
@@ -450,21 +470,25 @@ CREATE INDEX idx_ai_cache_type ON ai_cache(type);
 ### Potential Additions
 
 1. **Combat Automation**
+
    - Auto-roll initiative for all tokens
    - Apply area effects to multiple tokens
    - Track concentration spells
 
 2. **Map Layers** (from your original list)
+
    - Dynamic lighting
    - Hidden DM layer
    - Per-token vision
 
 3. **Audio Integration**
+
    - Background music playlist
    - Sound effects library
    - Ambient sounds per location
 
 4. **Mobile Companion App**
+
    - Player character sheet
    - Dice roller
    - Note viewer
@@ -481,21 +505,25 @@ CREATE INDEX idx_ai_cache_type ON ai_cache(type);
 ### Common Issues
 
 **Token stats not saving:**
+
 - Check database migration ran successfully
 - Verify GraphQL endpoint is accessible
 - Check browser console for errors
 
 **AI assistant not working:**
+
 - Verify `ANTHROPIC_API_KEY` is set in `.env`
 - Check API key is valid at console.anthropic.com
 - Review server logs for API errors
 
 **Initiative tracker not updating:**
+
 - Ensure tokens have initiative values set
 - Check WebSocket connection status
 - Refresh page and try again
 
 **Notes not linking:**
+
 - Verify note titles match @mentions exactly
 - Check case sensitivity
 - Use note search to confirm spelling
@@ -525,24 +553,28 @@ If you make improvements:
 ## Summary: What You're Building
 
 ### Phase 1 Deliverables
+
 ✅ Tokens with HP, AC, conditions, initiative
 ✅ Visual HP bars and condition icons on map
 ✅ Initiative tracker with auto-turn advancement
 ✅ Quick damage/healing interface
 
 ### Phase 2 Deliverables
+
 ✅ 6 note templates (Monster, NPC, Location, Item, Quest, Session)
 ✅ Auto-linking system (@mentions)
 ✅ Note categories and organization
 ✅ Backlinks between notes
 
 ### Phase 3 Deliverables
+
 ✅ Dice macro system
 ✅ Map reveal macros
 ✅ Token spawn macros
 ✅ Event trigger system
 
 ### Phase 4 Deliverables
+
 ✅ AI NPC generator
 ✅ AI monster stat block generator
 ✅ AI location description generator

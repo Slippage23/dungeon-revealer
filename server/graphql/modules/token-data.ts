@@ -512,13 +512,19 @@ export const mutationFields = [
     resolve: (_, args, context) =>
       RT.run(
         pipe(
-          RT.fromTask(() =>
-            tokenDataDb.setInitiative(context.db, {
+          RT.fromTask(async () => {
+            const result = await tokenDataDb.setInitiative(context.db, {
               mapId: args.input.mapId,
               tokenId: args.input.tokenId,
               initiativeValue: args.input.initiativeValue,
-            })
-          )
+            });
+            // Invalidate live queries for combat state and tokens
+            context.liveQueryStore.invalidate([
+              "Query.combatState",
+              "Query.mapTokens",
+            ]);
+            return result;
+          })
         ),
         context
       ),
@@ -533,9 +539,15 @@ export const mutationFields = [
     resolve: (_, args, context) =>
       RT.run(
         pipe(
-          RT.fromTask(() =>
-            tokenDataDb.advanceInitiative(context.db, args.mapId)
-          )
+          RT.fromTask(async () => {
+            const result = await tokenDataDb.advanceInitiative(
+              context.db,
+              args.mapId
+            );
+            // Invalidate live queries for combat state
+            context.liveQueryStore.invalidate(["Query.combatState"]);
+            return result;
+          })
         ),
         context
       ),
@@ -550,7 +562,15 @@ export const mutationFields = [
     resolve: (_, args, context) =>
       RT.run(
         pipe(
-          RT.fromTask(() => tokenDataDb.startCombat(context.db, args.mapId))
+          RT.fromTask(async () => {
+            const result = await tokenDataDb.startCombat(
+              context.db,
+              args.mapId
+            );
+            // Invalidate live queries for combat state
+            context.liveQueryStore.invalidate(["Query.combatState"]);
+            return result;
+          })
         ),
         context
       ),
@@ -567,6 +587,8 @@ export const mutationFields = [
         pipe(
           RT.fromTask(async () => {
             await tokenDataDb.endCombat(context.db, args.mapId);
+            // Invalidate live queries for combat state
+            context.liveQueryStore.invalidate(["Query.combatState"]);
             return true;
           })
         ),
@@ -590,6 +612,11 @@ export const mutationFields = [
               args.mapId,
               args.tokenId
             );
+            // Invalidate live queries for combat state and tokens
+            context.liveQueryStore.invalidate([
+              "Query.combatState",
+              "Query.mapTokens",
+            ]);
             return true;
           })
         ),

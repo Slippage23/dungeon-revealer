@@ -389,9 +389,9 @@ Verify `current_hp` matches UI and `updated_at` timestamp is recent.
 
 When all tests pass, mark the feature as **READY FOR PRODUCTION**.
 
-**Tester**: ********\_\_\_********  
-**Date**: ********\_\_\_********  
-**Notes**: ********\_\_\_********
+**Tester**: **\*\*\*\***\_\_\_**\*\*\*\***  
+**Date**: **\*\*\*\***\_\_\_**\*\*\*\***  
+**Notes**: **\*\*\*\***\_\_\_**\*\*\*\***
 
 ---
 

@@ -307,14 +307,37 @@ export const mutationFields = [
     args: {
       input: t.arg(t.NonNullInput(GraphQLMapTokenRemoveManyInput)),
     },
-    resolve: (_, { input }, context) =>
-      RT.run(
+    resolve: (_, { input }, context) => {
+      console.log("[GraphQL mapTokenRemoveMany] ===== MUTATION RECEIVED =====");
+      console.log("[GraphQL mapTokenRemoveMany] input:", input);
+      console.log("[GraphQL mapTokenRemoveMany] mapId:", input.mapId);
+      console.log("[GraphQL mapTokenRemoveMany] tokenIds:", input.tokenIds);
+      console.log(
+        "[GraphQL mapTokenRemoveMany] tokenIds count:",
+        input.tokenIds.length
+      );
+      console.log(
+        "[GraphQL mapTokenRemoveMany] session role:",
+        context.session?.role
+      );
+      console.log(
+        "[GraphQL mapTokenRemoveMany] Calling lib.removeManyMapToken"
+      );
+
+      const result = RT.run(
         lib.removeManyMapToken({
           mapId: input.mapId,
           tokenIds: new Set(input.tokenIds),
         }),
         context
-      ),
+      );
+
+      console.log(
+        "[GraphQL mapTokenRemoveMany] lib.removeManyMapToken returned:",
+        result
+      );
+      return result;
+    },
   }),
   t.field({
     name: "mapTokenAddMany",
@@ -325,10 +348,32 @@ export const mutationFields = [
     },
     resolve: (_, { input }, context) =>
       RT.run(
-        lib.addManyMapToken({
-          mapId: input.mapId,
-          tokenProps: input.tokens,
-        }),
+        pipe(
+          lib.addManyMapToken({
+            mapId: input.mapId,
+            tokenProps: input.tokens,
+          }),
+          RT.chainW((result: any) => {
+            // Create token_data entries for each newly added token
+            if (result && result.tokens && Array.isArray(result.tokens)) {
+              return RT.fromTask(async () => {
+                for (const token of result.tokens) {
+                  console.log(
+                    "[GraphQL] Creating token_data for token:",
+                    token.id
+                  );
+                  await tokenDataDb.upsertTokenData(context.db, {
+                    tokenId: token.id,
+                    mapId: input.mapId,
+                    conditions: [],
+                  });
+                }
+                return true;
+              });
+            }
+            return RT.of(true);
+          })
+        ),
         context
       ),
   }),
@@ -411,6 +456,7 @@ const GraphQLMapGridType = t.objectType<MapGridEntity>({
     t.field({
       name: "color",
       type: t.NonNull(t.String),
+      resolve: (source) => source.color ?? "#cccccc",
     }),
     t.field({
       name: "offsetX",
@@ -458,10 +504,12 @@ const GraphQLMapTokenType = t.objectType<MapTokenEntity>({
     t.field({
       name: "color",
       type: t.NonNull(t.String),
+      resolve: (source) => source.color ?? "#000000",
     }),
     t.field({
       name: "label",
       type: t.NonNull(t.String),
+      resolve: (source) => source.label ?? "",
     }),
     t.field({
       name: "isVisibleForPlayers",
@@ -773,6 +821,38 @@ export const queryFields = [
     },
     resolve: (_, args, context) =>
       RT.run(lib.getMapById({ mapId: args.id }), context),
+  }),
+  t.field({
+    name: "mapTokens",
+    description: "Get all tokens on a map by id (excludes reference tokens).",
+    type: t.NonNull(t.List(t.NonNull(GraphQLMapTokenType))),
+    args: {
+      mapId: t.arg(t.NonNullInput(t.ID)),
+    },
+    resolve: (_, args, context) =>
+      RT.run(lib.getMapById({ mapId: args.mapId }), context).then(
+        (map: any) => {
+          // Filter out reference tokens (those linked to notes)
+          const tokens = (map?.tokens ?? []).filter(
+            (token: any) => !token.reference
+          );
+          console.log(
+            `[DEBUG mapTokens] Filtered to ${tokens.length} tokens (from ${
+              (map?.tokens ?? []).length
+            } total) for map ${args.mapId}:`,
+            tokens.map((t: any) => ({
+              id: t.id,
+              label: t.label,
+              type: t.type,
+              x: t.x,
+              y: t.y,
+              radius: t.radius,
+              isVisibleForPlayers: t.isVisibleForPlayers,
+            }))
+          );
+          return tokens;
+        }
+      ),
   }),
 ];
 
