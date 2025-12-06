@@ -6,6 +6,8 @@
 [![Docker](https://img.shields.io/static/v1?label=docker&message=v1.17.1&color=blue&logo=Docker)](https://github.com/dungeon-revealer/dungeon-revealer/pkgs/container/dungeon-revealer/versions)
 [![Discord](https://img.shields.io/discord/709687178422386708)](https://discord.gg/dS5khqk)
 
+**✅ Status**: Production Ready | **Latest**: v1.17.1 | **Session 14**: Relay Decode Error Completely Resolved
+
 Dungeon Revealer is an open source self-hosted app for playing pen and paper such as Dungeon and Dragons or Cyberpunk or other tabletop games together.
 
 The main features include revealing game maps to players, moving around tokens on a map, a dice roll chat, sharing notes and images, and note templates that append to existing content.

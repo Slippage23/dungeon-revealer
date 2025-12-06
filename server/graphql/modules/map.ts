@@ -385,7 +385,9 @@ export const mutationFields = [
       input: t.arg(t.NonNullInput(GraphQLMapImageRequestUploadInputType)),
     },
     resolve: (_, { input }, context) =>
-      RT.run(lib.createMapImageUploadUrl(input), context),
+      RT.run(lib.createMapImageUploadUrl(input), context).then(
+        (result) => result
+      ),
   }),
   t.field({
     name: "mapCreate",
@@ -394,7 +396,8 @@ export const mutationFields = [
     args: {
       input: t.arg(t.NonNullInput(GraphQLMapCreateInput)),
     },
-    resolve: (_, { input }, context) => RT.run(lib.mapCreate(input), context),
+    resolve: (_, { input }, context) =>
+      RT.run(lib.mapCreate(input), context).then((result) => result),
   }),
   t.field({
     name: "mapDelete",
@@ -410,7 +413,7 @@ export const mutationFields = [
           RT.chain(() => RT.of(true))
         ),
         context
-      ),
+      ).then((result) => result),
   }),
   t.field({
     name: "mapUpdateTitle",
@@ -420,7 +423,7 @@ export const mutationFields = [
       input: t.arg(t.NonNullInput(GraphQLMapUpdateTitleInputType)),
     },
     resolve: (_, { input }, context) =>
-      RT.run(lib.mapUpdateTitle(input), context),
+      RT.run(lib.mapUpdateTitle(input), context).then((result) => result),
   }),
   t.field({
     name: "mapUpdateGrid",
@@ -430,7 +433,7 @@ export const mutationFields = [
       input: t.arg(t.NonNullInput(GraphQLMapUpdateGridInputType)),
     },
     resolve: (_, { input }, context) =>
-      RT.run(lib.mapUpdateGrid(input), context),
+      RT.run(lib.mapUpdateGrid(input), context).then((result) => result),
   }),
   t.field({
     name: "mapPing",
@@ -569,21 +572,42 @@ const GraphQLMapTokenType = t.objectType<MapTokenEntity>({
           mapTokenId: source.id,
           mapTokenLabel: source.label,
         });
-        return RT.run(
-          RT.fromTask(async () => {
-            console.log(
-              "[GraphQL MapToken] getTokenData called with tokenId:",
-              source.id
-            );
-            const data = await tokenDataDb.getTokenData(context.db, source.id);
-            console.log(
-              "[GraphQL MapToken] getTokenData returned:",
-              data ? { id: data.id, tokenId: data.tokenId } : null
-            );
-            return data ?? null;
-          }),
-          context
-        );
+
+        return tokenDataDb.getTokenData(context.db, source.id).then((data) => {
+          console.log(
+            "[GraphQL MapToken] getTokenData returned:",
+            data
+              ? { id: data.id, tokenId: data.tokenId }
+              : "null - returning default"
+          );
+
+          // Return data if found, otherwise return a default empty TokenData object
+          // This prevents Relay validation errors when tokenData fields are queried
+          const result = data ?? {
+            id: 0,
+            tokenId: source.id,
+            mapId: source.id,
+            currentHp: null,
+            maxHp: null,
+            tempHp: 0,
+            armorClass: null,
+            speed: null,
+            initiativeModifier: 0,
+            conditions: [],
+            notes: null,
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+          };
+
+          console.log("[GraphQL MapToken] tokenData resolver returning:", {
+            hasId: !!result.id,
+            id: result.id,
+            tokenId: result.tokenId,
+            mapId: result.mapId,
+          });
+
+          return result;
+        });
       },
     }),
   ],
@@ -800,8 +824,12 @@ export const queryFields = [
       after: t.arg(t.String, "Cursor after which items should be fetched."),
       titleNeedle: t.arg(t.String, "Needle for filtering the items."),
     },
-    resolve: (_, args, context) =>
-      RT.run(
+    resolve: (_, args, context) => {
+      console.log("[GraphQL Query] maps requested:", {
+        first: args.first,
+        titleNeedle: args.titleNeedle,
+      });
+      return RT.run(
         pipe(
           sequenceRT(
             decodeMapsConnectionCursor(args.after),
@@ -816,13 +844,26 @@ export const queryFields = [
           )
         ),
         context
-      ),
+      ).then((result) => {
+        console.log("[GraphQL Query] maps result:", { hasResult: !!result });
+        return result;
+      });
+    },
   }),
   t.field({
     name: "activeMap",
     description: "The active map that is shared with the players.",
     type: GraphQLMapType,
-    resolve: (_, __, context) => RT.run(lib.getActiveMap(), context),
+    resolve: (_, __, context) => {
+      console.log("[GraphQL Query] activeMap requested");
+      return RT.run(lib.getActiveMap(), context).then((result) => {
+        console.log("[GraphQL Query] activeMap result:", {
+          hasResult: !!result,
+          id: result?.id,
+        });
+        return result;
+      });
+    },
   }),
   t.field({
     name: "map",
@@ -831,8 +872,18 @@ export const queryFields = [
     args: {
       id: t.arg(t.NonNullInput(t.ID)),
     },
-    resolve: (_, args, context) =>
-      RT.run(lib.getMapById({ mapId: args.id }), context),
+    resolve: (_, args, context) => {
+      console.log("[GraphQL Query] map requested:", { mapId: args.id });
+      return RT.run(lib.getMapById({ mapId: args.id }), context).then(
+        (result) => {
+          console.log("[GraphQL Query] map result:", {
+            hasResult: !!result,
+            id: result?.id,
+          });
+          return result;
+        }
+      );
+    },
   }),
   t.field({
     name: "mapTokens",

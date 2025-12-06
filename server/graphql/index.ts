@@ -81,7 +81,7 @@ const nodeField = t.field({
         )
       ),
       context
-    ),
+    ).then((result) => result),
 });
 
 const Query = t.queryType({

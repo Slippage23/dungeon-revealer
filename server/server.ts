@@ -43,6 +43,8 @@ export const bootstrapServer = async (env: ReturnType<typeof getEnv>) => {
     path: "/api/socket.io",
   });
 
+  console.log("[Server] Socket.IO server created");
+
   const processTask = createResourceTaskProcessor();
 
   const maps = new Maps({ processTask, dataDirectory: env.DATA_DIRECTORY });
@@ -274,44 +276,83 @@ export const bootstrapServer = async (env: ReturnType<typeof getEnv>) => {
   const authenticatedSockets = new Set();
 
   io.on("connection", (socket) => {
-    console.log(`WS client ${socket.handshake.address} ${socket.id} connected`);
-
-    socketSessionStore.set(socket, {
-      id: socket.id,
-      role: "unauthenticated",
-    });
-
-    socket.on("authenticate", ({ password, desiredRole }) => {
-      socketIOGraphQLServer.disposeSocket(socket);
-      socket.removeAllListeners();
-
-      const role = getRole(password);
-      if (role === null) {
-        console.log(
-          `WS ${socket.handshake.address} ${socket.id} client authenticate failed`
-        );
-        return;
-      }
-
+    try {
       console.log(
-        `WS client ${socket.handshake.address} ${socket.id} authenticate ${role}`
+        `[Socket.IO] New connection from ${socket.handshake.address} ${socket.id}`
       );
 
-      authenticatedSockets.add(socket);
-      socketSessionStore.set(socket, {
-        id: socket.id,
-        role: role === "DM" ? desiredRole : "user",
+      // Session might already be created by socketIOGraphQLServer.getParameter
+      let session = socketSessionStore.get(socket);
+      if (!session) {
+        console.log(`[Socket.IO] Creating session for socket ${socket.id}`);
+        socketSessionStore.set(socket, {
+          id: socket.id,
+          role: "unauthenticated",
+        });
+      }
+
+      // Add error handler for socket
+      socket.on("error", (err) => {
+        console.error(`[Socket.IO] Socket error for ${socket.id}:`, err);
       });
 
-      socketIOGraphQLServer.registerSocket(socket);
+      socket.on("authenticate", ({ password, desiredRole }) => {
+        console.log(
+          `[Socket.IO] Authenticate event received for socket ${socket.id}`
+        );
+        socketIOGraphQLServer.disposeSocket(socket);
+        socket.removeAllListeners();
 
-      socket.emit("authenticated");
-    });
+        const role = getRole(password);
+        if (role === null) {
+          console.log(
+            `[Socket.IO] Authentication failed for ${socket.handshake.address} ${socket.id}`
+          );
+          return;
+        }
 
-    socket.once("disconnect", function () {
-      authenticatedSockets.delete(socket);
-    });
+        console.log(
+          `[Socket.IO] Authenticated ${role} for socket ${socket.id}`
+        );
+
+        authenticatedSockets.add(socket);
+        socketSessionStore.set(socket, {
+          id: socket.id,
+          role: role === "DM" ? desiredRole : "user",
+        });
+
+        console.log(
+          `[Socket.IO] About to register socket ${socket.id} with GraphQL`
+        );
+        socketIOGraphQLServer.registerSocket(socket);
+        console.log(`[Socket.IO] Socket ${socket.id} registered with GraphQL`);
+
+        socket.emit("authenticated");
+      });
+
+      socket.once("disconnect", function () {
+        console.log(`[Socket.IO] Socket ${socket.id} DISCONNECTED`);
+        authenticatedSockets.delete(socket);
+      });
+
+      console.log(
+        `[Socket.IO] Connection handler complete for socket ${socket.id}`
+      );
+      console.log(`[Socket.IO] Socket ready for authentication events`);
+    } catch (err: unknown) {
+      console.error("[Socket.IO] Error in connection handler:", err);
+      if (err instanceof Error && err.stack) {
+        console.error("[Socket.IO] Stack:", err.stack);
+      }
+    }
+  });
+  io.on("error", (err: unknown) => {
+    console.error("[Socket.IO] Server error:", err);
+    if (err instanceof Error && err.stack) {
+      console.error("[Socket.IO] Stack:", err.stack);
+    }
   });
 
+  console.log("[Server] bootstrapServer completed successfully");
   return { app, httpServer, io };
 };

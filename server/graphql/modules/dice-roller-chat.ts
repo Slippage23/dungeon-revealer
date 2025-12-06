@@ -416,7 +416,9 @@ export const queryFields = [
         return null;
       }
 
-      return RT.run(ImageModule.resolveImage(id), context);
+      return RT.run(ImageModule.resolveImage(id), context).then(
+        (result) => result
+      );
     },
   }),
 ];

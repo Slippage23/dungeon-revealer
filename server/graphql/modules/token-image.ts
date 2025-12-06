@@ -257,7 +257,9 @@ const GraphQLTokenImageCreateSuccessType =
         name: "createdTokenImage",
         type: t.NonNull(GraphQLTokenImageType),
         resolve: ({ tokenImageId }, _, context) =>
-          RT.run(lib.getTokenImageById(tokenImageId), context),
+          RT.run(lib.getTokenImageById(tokenImageId), context).then(
+            (result) => result
+          ),
       }),
     ],
   });
@@ -299,7 +301,9 @@ export const mutationFields = [
       input: t.arg(t.NonNullInput(GraphQLRequestTokenImageUploadInputType)),
     },
     resolve: (_, args, context) =>
-      RT.run(lib.requestTokenImageUpload(args.input), context),
+      RT.run(lib.requestTokenImageUpload(args.input), context).then(
+        (result) => result
+      ),
   }),
   t.field({
     name: "tokenImageCreate",

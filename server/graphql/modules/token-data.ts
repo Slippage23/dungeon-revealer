@@ -343,14 +343,29 @@ export const queryFields = [
       console.log("[GraphQL Query] tokenData requested:", {
         tokenId: args.tokenId,
       });
-      const result = RT.run(
-        pipe(
-          RT.fromTask(() => tokenDataDb.getTokenData(context.db, args.tokenId))
-        ),
-        context
-      );
-      console.log("[GraphQL Query] tokenData result:", result);
-      return result;
+      return tokenDataDb
+        .getTokenData(context.db, args.tokenId)
+        .then((result) => {
+          console.log("[GraphQL Query] tokenData result:", result);
+          // Return the result or a default empty TokenData object if null
+          return (
+            result ?? {
+              id: 0,
+              tokenId: args.tokenId,
+              mapId: "",
+              currentHp: null,
+              maxHp: null,
+              tempHp: 0,
+              armorClass: null,
+              speed: null,
+              initiativeModifier: 0,
+              conditions: [],
+              notes: null,
+              createdAt: Date.now(),
+              updatedAt: Date.now(),
+            }
+          );
+        });
     },
   }),
   t.field({
@@ -364,17 +379,15 @@ export const queryFields = [
       console.log("[GraphQL Query] mapTokenData requested:", {
         mapId: args.mapId,
       });
-      const result = RT.run(
-        pipe(
-          RT.fromTask(() => tokenDataDb.getMapTokenData(context.db, args.mapId))
-        ),
-        context
-      );
-      console.log(
-        "[GraphQL Query] mapTokenData result count:",
-        Array.isArray(result) ? result.length : "not an array"
-      );
-      return result;
+      return tokenDataDb
+        .getMapTokenData(context.db, args.mapId)
+        .then((result) => {
+          console.log(
+            "[GraphQL Query] mapTokenData result count:",
+            Array.isArray(result) ? result.length : "not an array"
+          );
+          return result;
+        });
     },
   }),
   t.field({
@@ -385,12 +398,9 @@ export const queryFields = [
       mapId: t.arg(t.NonNullInput(t.String)),
     },
     resolve: (_, args, context) =>
-      RT.run(
-        pipe(
-          RT.fromTask(() => tokenDataDb.getCombatState(context.db, args.mapId))
-        ),
-        context
-      ),
+      tokenDataDb
+        .getCombatState(context.db, args.mapId)
+        .then((result) => result),
   }),
 ];
 
@@ -421,25 +431,20 @@ export const mutationFields = [
       const normalizedConditions = args.input.conditions?.map((c: string) =>
         c.toLowerCase()
       ) as TokenCondition[] | undefined;
-      return RT.run(
-        pipe(
-          RT.fromTask(() =>
-            tokenDataDb.upsertTokenData(context.db, {
-              tokenId: args.input.tokenId,
-              mapId: args.input.mapId,
-              currentHp: args.input.currentHp ?? undefined,
-              maxHp: args.input.maxHp ?? undefined,
-              tempHp: args.input.tempHp ?? undefined,
-              armorClass: args.input.armorClass ?? undefined,
-              speed: args.input.speed ?? undefined,
-              initiativeModifier: args.input.initiativeModifier ?? undefined,
-              conditions: normalizedConditions,
-              notes: args.input.notes ?? undefined,
-            })
-          )
-        ),
-        context
-      );
+      return tokenDataDb
+        .upsertTokenData(context.db, {
+          tokenId: args.input.tokenId,
+          mapId: args.input.mapId,
+          currentHp: args.input.currentHp ?? undefined,
+          maxHp: args.input.maxHp ?? undefined,
+          tempHp: args.input.tempHp ?? undefined,
+          armorClass: args.input.armorClass ?? undefined,
+          speed: args.input.speed ?? undefined,
+          initiativeModifier: args.input.initiativeModifier ?? undefined,
+          conditions: normalizedConditions,
+          notes: args.input.notes ?? undefined,
+        })
+        .then((result) => result);
     },
   }),
   t.field({
@@ -450,18 +455,9 @@ export const mutationFields = [
       input: t.arg(t.NonNullInput(GraphQLApplyDamageInput)),
     },
     resolve: (_, args, context) =>
-      RT.run(
-        pipe(
-          RT.fromTask(() =>
-            tokenDataDb.applyDamage(
-              context.db,
-              args.input.tokenId,
-              args.input.amount
-            )
-          )
-        ),
-        context
-      ),
+      tokenDataDb
+        .applyDamage(context.db, args.input.tokenId, args.input.amount)
+        .then((result) => result),
   }),
   t.field({
     name: "toggleCondition",
@@ -471,18 +467,13 @@ export const mutationFields = [
       input: t.arg(t.NonNullInput(GraphQLToggleConditionInput)),
     },
     resolve: (_, args, context) =>
-      RT.run(
-        pipe(
-          RT.fromTask(() =>
-            tokenDataDb.toggleCondition(
-              context.db,
-              args.input.tokenId,
-              args.input.condition as TokenCondition
-            )
-          )
-        ),
-        context
-      ),
+      tokenDataDb
+        .toggleCondition(
+          context.db,
+          args.input.tokenId,
+          args.input.condition as TokenCondition
+        )
+        .then((result) => result),
   }),
   t.field({
     name: "deleteTokenData",
@@ -492,15 +483,7 @@ export const mutationFields = [
       tokenId: t.arg(t.NonNullInput(t.String)),
     },
     resolve: (_, args, context) =>
-      RT.run(
-        pipe(
-          RT.fromTask(async () => {
-            await tokenDataDb.deleteTokenData(context.db, args.tokenId);
-            return true;
-          })
-        ),
-        context
-      ),
+      tokenDataDb.deleteTokenData(context.db, args.tokenId).then(() => true),
   }),
   t.field({
     name: "setInitiative",
@@ -510,24 +493,20 @@ export const mutationFields = [
       input: t.arg(t.NonNullInput(GraphQLSetInitiativeInput)),
     },
     resolve: (_, args, context) =>
-      RT.run(
-        pipe(
-          RT.fromTask(async () => {
-            const result = await tokenDataDb.setInitiative(context.db, {
-              mapId: args.input.mapId,
-              tokenId: args.input.tokenId,
-              initiativeValue: args.input.initiativeValue,
-            });
-            // Invalidate live queries for combat state and tokens
-            context.liveQueryStore.invalidate([
-              "Query.combatState",
-              "Query.mapTokens",
-            ]);
-            return result;
-          })
-        ),
-        context
-      ),
+      tokenDataDb
+        .setInitiative(context.db, {
+          mapId: args.input.mapId,
+          tokenId: args.input.tokenId,
+          initiativeValue: args.input.initiativeValue,
+        })
+        .then((result) => {
+          // Invalidate live queries for combat state and tokens
+          context.liveQueryStore.invalidate([
+            "Query.combatState",
+            "Query.mapTokens",
+          ]);
+          return result;
+        }),
   }),
   t.field({
     name: "advanceInitiative",
@@ -537,20 +516,11 @@ export const mutationFields = [
       mapId: t.arg(t.NonNullInput(t.String)),
     },
     resolve: (_, args, context) =>
-      RT.run(
-        pipe(
-          RT.fromTask(async () => {
-            const result = await tokenDataDb.advanceInitiative(
-              context.db,
-              args.mapId
-            );
-            // Invalidate live queries for combat state
-            context.liveQueryStore.invalidate(["Query.combatState"]);
-            return result;
-          })
-        ),
-        context
-      ),
+      tokenDataDb.advanceInitiative(context.db, args.mapId).then((result) => {
+        // Invalidate live queries for combat state
+        context.liveQueryStore.invalidate(["Query.combatState"]);
+        return result;
+      }),
   }),
   t.field({
     name: "startCombat",
@@ -560,20 +530,11 @@ export const mutationFields = [
       mapId: t.arg(t.NonNullInput(t.String)),
     },
     resolve: (_, args, context) =>
-      RT.run(
-        pipe(
-          RT.fromTask(async () => {
-            const result = await tokenDataDb.startCombat(
-              context.db,
-              args.mapId
-            );
-            // Invalidate live queries for combat state
-            context.liveQueryStore.invalidate(["Query.combatState"]);
-            return result;
-          })
-        ),
-        context
-      ),
+      tokenDataDb.startCombat(context.db, args.mapId).then((result) => {
+        // Invalidate live queries for combat state
+        context.liveQueryStore.invalidate(["Query.combatState"]);
+        return result;
+      }),
   }),
   t.field({
     name: "endCombat",
@@ -583,17 +544,11 @@ export const mutationFields = [
       mapId: t.arg(t.NonNullInput(t.String)),
     },
     resolve: (_, args, context) =>
-      RT.run(
-        pipe(
-          RT.fromTask(async () => {
-            await tokenDataDb.endCombat(context.db, args.mapId);
-            // Invalidate live queries for combat state
-            context.liveQueryStore.invalidate(["Query.combatState"]);
-            return true;
-          })
-        ),
-        context
-      ),
+      tokenDataDb.endCombat(context.db, args.mapId).then(() => {
+        // Invalidate live queries for combat state
+        context.liveQueryStore.invalidate(["Query.combatState"]);
+        return true;
+      }),
   }),
   t.field({
     name: "removeFromInitiative",
@@ -604,24 +559,16 @@ export const mutationFields = [
       tokenId: t.arg(t.NonNullInput(t.String)),
     },
     resolve: (_, args, context) =>
-      RT.run(
-        pipe(
-          RT.fromTask(async () => {
-            await tokenDataDb.removeFromInitiative(
-              context.db,
-              args.mapId,
-              args.tokenId
-            );
-            // Invalidate live queries for combat state and tokens
-            context.liveQueryStore.invalidate([
-              "Query.combatState",
-              "Query.mapTokens",
-            ]);
-            return true;
-          })
-        ),
-        context
-      ),
+      tokenDataDb
+        .removeFromInitiative(context.db, args.mapId, args.tokenId)
+        .then(() => {
+          // Invalidate live queries for combat state and tokens
+          context.liveQueryStore.invalidate([
+            "Query.combatState",
+            "Query.mapTokens",
+          ]);
+          return true;
+        }),
   }),
 ];
 

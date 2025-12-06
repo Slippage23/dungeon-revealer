@@ -225,7 +225,9 @@ export const queryFields = [
       mapId: t.arg(t.NonNullInput(t.String)),
     },
     resolve: (_, args, context) =>
-      RT.run(resolveNoteTemplatesQuery(args.mapId), context),
+      RT.run(resolveNoteTemplatesQuery(args.mapId), context).then(
+        (result) => result
+      ),
   }),
   t.field({
     name: "noteTemplate",
@@ -261,7 +263,9 @@ export const mutationFields = [
       input: t.arg(t.NonNullInput(GraphQLNoteTemplateCreateInputType)),
     },
     resolve: (_, { input }, context) =>
-      RT.run(resolveNoteTemplateCreate(input), context),
+      RT.run(resolveNoteTemplateCreate(input), context).then(
+        (result) => result
+      ),
   }),
   t.field({
     name: "deleteNoteTemplate",
@@ -270,7 +274,9 @@ export const mutationFields = [
       input: t.arg(t.NonNullInput(GraphQLNoteTemplateDeleteInputType)),
     },
     resolve: (_, { input }, context) =>
-      RT.run(resolveNoteTemplateDelete(input.templateId), context),
+      RT.run(resolveNoteTemplateDelete(input.templateId), context).then(
+        (result) => result
+      ),
   }),
 ];
 

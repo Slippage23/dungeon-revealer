@@ -249,7 +249,9 @@ export const queryFields = [
       mapId: t.arg(t.NonNullInput(t.String)),
     },
     resolve: (_, args, context) =>
-      RT.run(resolveNoteCategoryTreeQuery(args.mapId), context),
+      RT.run(resolveNoteCategoryTreeQuery(args.mapId), context).then(
+        (result) => result
+      ),
   }),
   t.field({
     name: "noteCategories",
@@ -306,7 +308,9 @@ export const mutationFields = [
       input: t.arg(t.NonNullInput(GraphQLNoteCategoryCreateInputType)),
     },
     resolve: (_, { input }, context) =>
-      RT.run(resolveNoteCategoryCreate(input), context),
+      RT.run(resolveNoteCategoryCreate(input), context).then(
+        (result) => result
+      ),
   }),
   t.field({
     name: "updateNoteCategory",
@@ -315,7 +319,9 @@ export const mutationFields = [
       input: t.arg(t.NonNullInput(GraphQLNoteCategoryUpdateInputType)),
     },
     resolve: (_, { input }, context) =>
-      RT.run(resolveNoteCategoryUpdate(input), context),
+      RT.run(resolveNoteCategoryUpdate(input), context).then(
+        (result) => result
+      ),
   }),
   t.field({
     name: "deleteNoteCategory",
@@ -324,7 +330,9 @@ export const mutationFields = [
       input: t.arg(t.NonNullInput(GraphQLNoteCategoryDeleteInputType)),
     },
     resolve: (_, { input }, context) =>
-      RT.run(resolveNoteCategoryDelete(input.id), context),
+      RT.run(resolveNoteCategoryDelete(input.id), context).then(
+        (result) => result
+      ),
   }),
 ];
 

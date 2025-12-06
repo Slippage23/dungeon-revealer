@@ -123,37 +123,54 @@ export default ({
     socketServer,
     isLazy: true,
     getParameter: ({ socket }) => {
-      console.log(
-        "[Socket.IO GraphQL] New GraphQL connection from socket:",
-        socket.id
-      );
+      try {
+        console.log(
+          "[Socket.IO GraphQL] New GraphQL connection from socket:",
+          socket.id
+        );
 
-      const contextValue: GraphQLContextType = {
-        chat,
-        user,
-        db,
-        session: getSession(socket),
-        liveQueryStore,
-        splashImageState,
-        socket,
-        socketServer,
-        pubSub,
-        fileStoragePath,
-        tokenImageUploadRegister,
-        publicUrl,
-        maps,
-        mapImageUploadRegister,
-        settings,
-      };
+        let session = socketSessionStore.get(socket);
+        if (!session) {
+          console.log(
+            `[Socket.IO GraphQL] No session for socket ${socket.id}, creating default unauthenticated session`
+          );
+          session = {
+            id: socket.id,
+            role: "unauthenticated",
+          };
+          socketSessionStore.set(socket, session);
+        }
 
-      return {
-        execute,
-        subscribe: subscribe as any,
-        graphQLExecutionParameter: {
-          schema,
-          contextValue: contextValue,
-        },
-      };
+        const contextValue: GraphQLContextType = {
+          chat,
+          user,
+          db,
+          session: session,
+          liveQueryStore,
+          splashImageState,
+          socket,
+          socketServer,
+          pubSub,
+          fileStoragePath,
+          tokenImageUploadRegister,
+          publicUrl,
+          maps,
+          mapImageUploadRegister,
+          settings,
+        };
+
+        return {
+          execute,
+          subscribe: subscribe as any,
+          graphQLExecutionParameter: {
+            schema,
+            contextValue: contextValue,
+          },
+        };
+      } catch (err) {
+        console.error("[Socket.IO GraphQL] Error during getParameter:", err);
+        throw err;
+      }
     },
   });
 

@@ -170,7 +170,7 @@ export const queryFields = [
       noteId: t.arg(t.NonNullInput(t.String)),
     },
     resolve: (_, args, context) =>
-      RT.run(resolveBacklinksTo(args.noteId), context),
+      RT.run(resolveBacklinksTo(args.noteId), context).then((result) => result),
   }),
   t.field({
     name: "backlinksFrom",
@@ -180,7 +180,9 @@ export const queryFields = [
       noteId: t.arg(t.NonNullInput(t.String)),
     },
     resolve: (_, args, context) =>
-      RT.run(resolveBacklinksFrom(args.noteId), context),
+      RT.run(resolveBacklinksFrom(args.noteId), context).then(
+        (result) => result
+      ),
   }),
 ];
 
@@ -196,7 +198,9 @@ export const mutationFields = [
       input: t.arg(t.NonNullInput(GraphQLNoteBacklinkCreateInputType)),
     },
     resolve: (_, { input }, context) =>
-      RT.run(resolveNoteBacklinkCreate(input), context),
+      RT.run(resolveNoteBacklinkCreate(input), context).then(
+        (result) => result
+      ),
   }),
   t.field({
     name: "deleteNoteBacklink",
@@ -208,7 +212,7 @@ export const mutationFields = [
       RT.run(
         resolveNoteBacklinkDelete(input.fromNoteId, input.toNoteId),
         context
-      ),
+      ).then((result) => result),
   }),
 ];
 

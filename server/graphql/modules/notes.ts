@@ -352,7 +352,9 @@ export const queryFields = [
       query: t.arg(t.String),
     },
     resolve: (_, args, context) =>
-      RT.run(resolveNotesSearch(args.query || ""), context),
+      RT.run(resolveNotesSearch(args.query || ""), context).then(
+        (result) => result
+      ),
   }),
   t.field({
     name: "note",
@@ -369,7 +371,9 @@ export const queryFields = [
       },
     },
     resolve: (_, args, context) =>
-      RT.run(resolveMaybeNote(args.documentId), context),
+      RT.run(resolveMaybeNote(args.documentId), context).then(
+        (result) => result
+      ),
   }),
 ];
 
@@ -528,7 +532,7 @@ export const mutationFields = [
       input: t.arg(t.NonNullInput(GraphQLNoteCreateInput)),
     },
     resolve: (_, { input }, context) =>
-      RT.run(resolveNoteCreate(input), context),
+      RT.run(resolveNoteCreate(input), context).then((result) => result),
   }),
   t.field({
     name: "noteDelete",
@@ -537,7 +541,7 @@ export const mutationFields = [
       input: t.arg(t.NonNullInput(GraphQLNoteDeleteInputType)),
     },
     resolve: (src, { input }, context) =>
-      RT.run(resolveNoteDelete(input.noteId), context),
+      RT.run(resolveNoteDelete(input.noteId), context).then((result) => result),
   }),
   t.field({
     name: "noteUpdateContent",
@@ -682,7 +686,9 @@ const GraphQLNotesUpdatesType = t.objectType<{
       description: "A note that was updated.",
       resolve: (obj, _, context) =>
         obj.updatedNoteId
-          ? RT.run(resolveNote(obj.updatedNoteId), context)
+          ? RT.run(resolveNote(obj.updatedNoteId), context).then(
+              (result) => result
+            )
           : null,
     }),
     t.field({

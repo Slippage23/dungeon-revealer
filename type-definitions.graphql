@@ -450,7 +450,7 @@ type MapToken {
   """
   Extended data for this token (HP, conditions, etc.)
   """
-  tokenData: TokenData
+  tokenData: TokenData!
 }
 
 """
