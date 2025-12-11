@@ -78,8 +78,12 @@ const BarContainer = styled.div`
   border-bottom: 2px solid #e94560;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
   overflow-x: auto;
+  overflow-y: visible;
   min-height: 60px;
   flex-wrap: wrap;
+  position: relative;
+  z-index: 10;
+  flex-shrink: 0;
 
   &::-webkit-scrollbar {
     height: 6px;
@@ -133,29 +137,20 @@ const RoundBadge = styled(Badge)`
 export const MapCombatBar: React.FC<MapCombatBarProps> = ({ mapId }) => {
   const toast = useToast();
 
-  // Don't render if mapId is not available
-  if (!mapId) {
-    return null;
-  }
-
-  // Query combat state
+  // Query combat state - ALWAYS called, regardless of conditions
   const queryResult = useQuery<mapCombatBar_Query$data>(MapCombatBar_Query, {
-    mapId,
-    mapIdForTokens: mapId,
+    mapId: mapId || "",
+    mapIdForTokens: mapId || "",
   });
 
-  // Mutation to advance to next turn
+  // Mutation to advance to next turn - ALWAYS called
   const [advanceMutation] = useMutation(MapCombatBar_AdvanceMutation);
 
   const data = queryResult.data;
   const combatState = data?.combatState;
   const tokens = data?.mapTokens || [];
 
-  if (!combatState?.isActive) {
-    return null;
-  }
-
-  // Create a map of token IDs to labels
+  // Create a map of token IDs to labels - ALWAYS called
   const tokenLabelsMap = React.useMemo(() => {
     const map = new Map<string, string>();
     tokens.forEach((token) => {
@@ -167,6 +162,7 @@ export const MapCombatBar: React.FC<MapCombatBarProps> = ({ mapId }) => {
   }, [tokens]);
 
   const initiatives = combatState?.initiatives || [];
+  // Sort initiatives - ALWAYS called
   const sortedInitiatives = React.useMemo(() => {
     return [...initiatives].sort((a, b) => {
       const orderA = a?.orderIndex ?? 0;
@@ -174,6 +170,11 @@ export const MapCombatBar: React.FC<MapCombatBarProps> = ({ mapId }) => {
       return orderA - orderB;
     });
   }, [initiatives]);
+
+  // Now check conditions AFTER all hooks are called
+  if (!mapId || !combatState?.isActive) {
+    return null;
+  }
 
   const handleAdvanceTurn = () => {
     advanceMutation({

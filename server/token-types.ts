@@ -68,7 +68,7 @@ export interface TokenDataInput {
  * Initiative tracker entry
  */
 export interface InitiativeEntry {
-  id: number;
+  id: string; // Composite key: mapId:tokenId
   mapId: string;
   tokenId: string;
   initiativeValue: number;

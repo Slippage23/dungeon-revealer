@@ -57,12 +57,6 @@ const Container = styled.div`
   overflow: hidden;
 `;
 
-const IconContainer = styled(animated.div)`
-  margin-top: 10px;
-  margin-right: 10px;
-  display: flex;
-`;
-
 const Aside = styled.div<{ width: number }>`
   height: 100%;
   width: ${(p) => p.width}px;
@@ -137,7 +131,13 @@ const AuthenticatedAppShellRenderer: React.FC<{ isMapOnly: boolean }> = ({
     };
   }, [chatWidth, chatPosition.x]);
 
+  console.log("AuthenticatedAppShellRenderer: rendering", {
+    isLoggedIn,
+    isMapOnly,
+  });
+
   if (isLoggedIn === false) {
+    console.log("AuthenticatedAppShellRenderer: not logged in, returning null");
     return null;
   }
 
@@ -161,25 +161,9 @@ const AuthenticatedAppShellRenderer: React.FC<{ isMapOnly: boolean }> = ({
                     (value) => `translateX(${value}px)`
                   ),
                   pointerEvents: "none",
+                  zIndex: 10,
                 }}
               >
-                <IconContainer>
-                  <IconButton
-                    onClick={() => setShowSearch(true)}
-                    style={{ marginRight: 8, pointerEvents: "all" }}
-                  >
-                    <Icon.Search boxSize="20px" />
-                  </IconButton>
-                  <ChatToggleButton
-                    hasUnreadMessages={hasUnreadMessages}
-                    onClick={() => {
-                      resetUnreadMessages();
-                      setShowChatState((showChat) =>
-                        showChat === "show" ? "hidden" : "show"
-                      );
-                    }}
-                  />
-                </IconContainer>
                 <Aside width={chatWidth}>
                   <Chat toggleShowDiceRollNotes={toggleShowDiceRollNotes} />
                 </Aside>

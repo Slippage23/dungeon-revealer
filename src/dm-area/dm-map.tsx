@@ -1162,6 +1162,8 @@ const MapViewContainer = styled.div`
   flex-direction: column;
   height: 100%;
   width: 100%;
+  position: relative;
+  min-height: 0;
 `;
 
 const BottomToolbarContainer = styled.div`

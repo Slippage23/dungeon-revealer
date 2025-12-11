@@ -81,7 +81,9 @@ const rowToTokenData = (row: any): TokenData => {
  * Convert database row to InitiativeEntry object
  */
 const rowToInitiativeEntry = (row: any): InitiativeEntry => ({
-  id: row.id,
+  // Use a composite key since mapId + tokenId is the unique constraint
+  // This ensures Relay gets a proper unique ID for each entry
+  id: `${row.map_id}:${row.token_id}`,
   mapId: row.map_id,
   tokenId: row.token_id,
   initiativeValue: row.initiative_value,
