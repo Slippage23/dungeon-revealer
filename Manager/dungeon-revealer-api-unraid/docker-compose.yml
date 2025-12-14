@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  dungeon-revealer-manager:
+    build: .
+    container_name: dungeon-revealer-manager
+    ports:
+      - "3001:3001"
+    volumes:
+      # Map the data directory - this is where your maps, tokens, and config will be stored
+      - ./data:/data
+      # Optional: If you want to use maps from your host system
+      # - /path/to/your/maps:/data/Assets/Maps
+      # - /path/to/your/tokens:/data/Assets/Tokens
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - DATA_DIR=/data
+    restart: unless-stopped
+    networks:
+      - dungeon-revealer-net
+
+networks:
+  dungeon-revealer-net:
+    driver: bridge

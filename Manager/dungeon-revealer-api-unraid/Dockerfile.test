@@ -1,0 +1,27 @@
+# Minimal test Dockerfile
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Copy just the package files
+COPY package*.json ./
+
+# Install
+RUN npm install --production
+
+# Copy server
+COPY server.js ./
+COPY public ./public
+
+# Make everything world-readable and executable
+RUN chmod -R 755 /app && \
+    chmod +x /usr/local/bin/node && \
+    mkdir -p /data && \
+    chmod -R 777 /data
+
+EXPOSE 3001
+
+ENV NODE_ENV=production PORT=3001 DATA_DIR=/data
+
+# Run with explicit shell wrapper
+CMD ["/bin/sh", "-c", "/usr/local/bin/node /app/server.js"]

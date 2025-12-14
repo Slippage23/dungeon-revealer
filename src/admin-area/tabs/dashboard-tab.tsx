@@ -8,6 +8,7 @@ import {
   Center,
   VStack,
   HStack,
+  Button,
 } from "@chakra-ui/react";
 import graphql from "babel-plugin-relay/macro";
 import { useQuery } from "relay-hooks";
@@ -17,41 +18,108 @@ import { dashboardTab_NotesQuery } from "./__generated__/dashboardTab_NotesQuery
 
 const COLORS = {
   burgundy: "#8B3A3A",
+  burgundyDark: "#5C2323",
+  burgundyDarker: "#3D1D1D",
   tan: "#D4C4B9",
   tanLight: "#E8DCD2",
-  darkBg: "#2A2A2A",
-  contentBg: "#3A3A3A",
+  tanDark: "#C4B4A9",
+  gold: "#B8860B",
+  darkBg: "#1A1515",
+  contentBg: "#2A2420",
   textLight: "#E8DCD2",
+  textMuted: "#A89890",
+  accent: "#D4A574",
+  success: "#6B8E23",
 };
 
 const StatCard = styled(Box)`
-  background: linear-gradient(135deg, ${COLORS.contentBg} 0%, #454545 100%);
-  border: 1px solid ${COLORS.burgundy};
-  border-radius: 4px;
-  padding: 24px;
+  background: linear-gradient(
+    135deg,
+    ${COLORS.contentBg} 0%,
+    ${COLORS.burgundyDarker} 100%
+  );
+  border: 2px solid ${COLORS.tanDark};
+  border-radius: 6px;
+  padding: 28px 24px;
   text-align: center;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
 
   &:hover {
-    border-color: ${COLORS.tan};
-    transform: translateY(-2px);
-    transition: all 0.2s ease;
+    border-color: ${COLORS.gold};
+    transform: translateY(-4px);
+    box-shadow: 0 8px 20px rgba(184, 134, 11, 0.2);
   }
 `;
 
 const StatNumber = styled.div`
-  font-size: 42px;
+  font-size: 48px;
   font-weight: bold;
-  color: ${COLORS.tan};
+  color: ${COLORS.gold};
   font-family: Georgia, serif;
   margin: 12px 0;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
 `;
 
 const StatLabel = styled.div`
-  font-size: 14px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: ${COLORS.textMuted};
+  font-family: Georgia, serif;
+`;
+
+const SectionTitle = styled.h2`
+  font-size: 24px;
+  font-weight: bold;
+  color: ${COLORS.tanLight};
+  margin-bottom: 4px;
+  font-family: Georgia, serif;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  &::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, ${COLORS.burgundy}, transparent);
+  }
+`;
+
+const SectionDescription = styled.p`
+  font-size: 13px;
+  color: ${COLORS.textMuted};
+  margin-bottom: 20px;
+  font-style: italic;
+`;
+
+const ActionButton = styled(Button)`
+  background-color: ${COLORS.burgundy};
+  color: ${COLORS.tanLight};
+  border: 1px solid ${COLORS.gold};
+  border-radius: 4px;
+  padding: 10px 16px;
+  font-family: Georgia, serif;
+  font-size: 12px;
+  font-weight: bold;
   text-transform: uppercase;
   letter-spacing: 1px;
-  color: ${COLORS.textLight};
-  font-family: Georgia, serif;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  &:hover {
+    background-color: ${COLORS.burgundyDark};
+    border-color: ${COLORS.tanLight};
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(139, 58, 58, 0.4);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
 `;
 
 const PageTitle = styled.h1`
@@ -62,6 +130,9 @@ const PageTitle = styled.h1`
   font-family: Georgia, serif;
   text-transform: uppercase;
   letter-spacing: 2px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
 `;
 
 const mapQuery = graphql`
@@ -138,116 +209,75 @@ export const DashboardTab: React.FC = () => {
   }
 
   return (
-    <VStack align="stretch" spacing={8}>
+    <VStack align="stretch" spacing={12}>
+      {/* Page Header */}
       <Box>
-        <PageTitle>📊 Dashboard</PageTitle>
-        <Text color={COLORS.textLight} fontSize="14px" mb={8}>
-          Overview of your server resources
-        </Text>
+        <PageTitle>📊 Statistics</PageTitle>
+        <SectionDescription>
+          Quick overview of your server resources
+        </SectionDescription>
       </Box>
 
       {/* Statistics Grid */}
-      <SimpleGrid columns={{ base: 1, md: 3 }} spacing={6}>
+      <SimpleGrid columns={{ base: 1, md: 3 }} spacing={8}>
         <StatCard>
-          <StatLabel>📊 Total Maps</StatLabel>
+          <StatLabel>Local Files</StatLabel>
           <StatNumber>{mapsCount}</StatNumber>
-          <Text fontSize="12px" color={COLORS.textLight}>
-            Available maps on server
-          </Text>
         </StatCard>
 
         <StatCard>
-          <StatLabel>🎯 Total Tokens</StatLabel>
+          <StatLabel>Server Maps</StatLabel>
           <StatNumber>{tokensCount}</StatNumber>
-          <Text fontSize="12px" color={COLORS.textLight}>
-            Token images available
-          </Text>
         </StatCard>
 
         <StatCard>
-          <StatLabel>📝 Total Notes</StatLabel>
-          <StatNumber>{notesCount}</StatNumber>
-          <Text fontSize="12px" color={COLORS.textLight}>
-            Shared resource notes
+          <StatLabel>Connection</StatLabel>
+          <StatNumber style={{ fontSize: "28px" }}>✓</StatNumber>
+          <Text fontSize="13px" color={COLORS.success} fontWeight="bold">
+            Online
           </Text>
         </StatCard>
       </SimpleGrid>
 
+      {/* Refresh Button */}
+      <HStack spacing={4}>
+        <ActionButton
+          onClick={() => window.location.reload()}
+          leftIcon={<span>🔄</span>}
+        >
+          Refresh Statistics
+        </ActionButton>
+      </HStack>
+
       {/* Quick Actions Section */}
       <Box
-        bg={COLORS.contentBg}
-        border={`1px solid ${COLORS.burgundy}`}
-        borderRadius="4px"
-        p={6}
-        mt={8}
+        bg={`linear-gradient(135deg, ${COLORS.contentBg} 0%, ${COLORS.burgundyDarker} 100%)`}
+        border={`2px solid ${COLORS.tanDark}`}
+        borderRadius="6px"
+        p={8}
+        mt={4}
+        boxShadow="0 4px 12px rgba(0, 0, 0, 0.6)"
       >
-        <Text
-          fontSize="16px"
-          fontWeight="bold"
-          color={COLORS.tan}
-          mb={4}
-          fontFamily="Georgia, serif"
-          textTransform="uppercase"
-          letterSpacing="1px"
-        >
-          🚀 Quick Actions
-        </Text>
-        <VStack
-          align="start"
-          spacing={2}
-          fontSize="14px"
-          color={COLORS.textLight}
-        >
-          <Text>
-            • Navigate to <strong>Maps</strong> tab to upload or manage maps
-          </Text>
-          <Text>
-            • Navigate to <strong>Tokens</strong> tab to upload or manage tokens
-          </Text>
-          <Text>
-            • Navigate to <strong>Notes</strong> tab to import monsters from
-            Excel
-          </Text>
-        </VStack>
-      </Box>
-
-      {/* Server Info Section */}
-      <Box
-        bg={COLORS.contentBg}
-        border={`1px solid ${COLORS.burgundy}`}
-        borderRadius="4px"
-        p={6}
-      >
-        <Text
-          fontSize="16px"
-          fontWeight="bold"
-          color={COLORS.tan}
-          mb={4}
-          fontFamily="Georgia, serif"
-          textTransform="uppercase"
-          letterSpacing="1px"
-        >
-          ℹ️ Server Information
-        </Text>
-        <VStack
-          align="start"
-          spacing={3}
-          fontSize="13px"
-          color={COLORS.textLight}
-        >
-          <HStack justify="space-between" width="100%">
-            <Text>API Version:</Text>
-            <Text color={COLORS.tan}>v1.17.1</Text>
-          </HStack>
-          <HStack justify="space-between" width="100%">
-            <Text>Status:</Text>
-            <Text color="#4ade80">● Online</Text>
-          </HStack>
-          <HStack justify="space-between" width="100%">
-            <Text>Database:</Text>
-            <Text color={COLORS.tan}>SQLite</Text>
-          </HStack>
-        </VStack>
+        <SectionTitle>🎯 Quick Actions</SectionTitle>
+        <HStack spacing={6} mt={6} wrap="wrap">
+          <ActionButton leftIcon={<span>📤</span>}>Start Upload</ActionButton>
+          <ActionButton
+            leftIcon={<span>🗺️</span>}
+            bg={COLORS.contentBg}
+            borderColor={COLORS.tanDark}
+            _hover={{ bg: COLORS.burgundyDarker }}
+          >
+            View Maps
+          </ActionButton>
+          <ActionButton
+            leftIcon={<span>⚙️</span>}
+            bg={COLORS.contentBg}
+            borderColor={COLORS.tanDark}
+            _hover={{ bg: COLORS.burgundyDarker }}
+          >
+            Configure
+          </ActionButton>
+        </HStack>
       </Box>
     </VStack>
   );
