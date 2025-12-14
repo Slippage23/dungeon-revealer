@@ -41,6 +41,11 @@ const main = async () => {
       component = <DmArea />;
       break;
     }
+    case "/admin": {
+      const { AdminArea } = await import("./admin-area/admin-area");
+      component = <AdminArea />;
+      break;
+    }
     default: {
       const isMapOnly = urlSearchParameter.get("map_only") !== null;
       const password = urlSearchParameter.get("password");
