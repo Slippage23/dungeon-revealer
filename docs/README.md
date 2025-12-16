@@ -1,24 +1,38 @@
-# Dungeon Revealer Documentation
+# Dungeon Revealer Documentation# Dungeon Revealer Documentation
 
-Welcome to the Dungeon Revealer documentation. This folder contains comprehensive guides, deployment instructions, and development history.
+This folder contains all project documentation organized into focused, comprehensive files.Welcome to the Dungeon Revealer documentation. This folder contains comprehensive guides, deployment instructions, and development history.
 
-## Quick Navigation
+## Documentation Files## Quick Navigation
 
-### 🚀 Getting Started
+| File | Description |### 🚀 Getting Started
 
-- **[Quick Start Guide](guides/QUICK_START.md)** - Get up and running in 5 minutes
-- **[Docker Deployment](deployment/DOCKER_GUIDE_UNRAID.md)** - Deploy to Unraid or Docker Desktop
+|------|-------------|
 
-### 📚 Documentation
+| [ADMIN_PANEL.md](./ADMIN_PANEL.md) | Admin Panel features, usage, and visual design |- **[Quick Start Guide](guides/QUICK_START.md)** - Get up and running in 5 minutes
 
-| Folder                             | Files | Contents                                                 |
+| [DEVELOPMENT.md](./DEVELOPMENT.md) | Development setup, architecture, and contribution guide |- **[Docker Deployment](deployment/DOCKER_GUIDE_UNRAID.md)** - Deploy to Unraid or Docker Desktop
+
+| [DEPLOYMENT.md](./DEPLOYMENT.md) | Docker, Unraid, and production deployment instructions |
+
+| [CHANGELOG.md](./CHANGELOG.md) | Version history and release notes |### 📚 Documentation
+
+## Quick Links| Folder | Files | Contents |
+
 | ---------------------------------- | ----- | -------------------------------------------------------- |
-| **[deployment/](deployment/)**     | 5     | Docker setup, deployment guides, and troubleshooting     |
-| **[guides/](guides/)**             | 19    | Feature guides, testing guides, and quick references     |
-| **[architecture/](architecture/)** | 27    | Design documents, roadmaps, and technical specifications |
-| **[sessions/](sessions/)**         | 29    | Complete development history across all sessions         |
+
+- **Main README**: See [../README.md](../README.md) for getting started| **[deployment/](deployment/)** | 5 | Docker setup, deployment guides, and troubleshooting |
+
+- **Wiki**: https://github.com/dungeon-revealer/dungeon-revealer/wiki| **[guides/](guides/)** | 19 | Feature guides, testing guides, and quick references |
+
+- **Discord**: https://discord.gg/dS5khqk| **[architecture/](architecture/)** | 27 | Design documents, roadmaps, and technical specifications |
+
+| **[sessions/](sessions/)** | 29 | Complete development history across all sessions |
+
+## Version
 
 ### 🎮 Features
+
+Current: **v1.17.1** (December 2025)
 
 #### Phase 1: Advanced Token Management ✅
 
