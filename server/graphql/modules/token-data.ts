@@ -153,13 +153,13 @@ const GraphQLTokenDataType = t.objectType<TokenData>({
     }),
     t.field({
       name: "createdAt",
-      type: t.NonNull(t.Int),
-      resolve: (record) => record.createdAt,
+      type: t.NonNull(t.String),
+      resolve: (record) => String(record.createdAt),
     }),
     t.field({
       name: "updatedAt",
-      type: t.NonNull(t.Int),
-      resolve: (record) => record.updatedAt,
+      type: t.NonNull(t.String),
+      resolve: (record) => String(record.updatedAt),
     }),
   ],
 });

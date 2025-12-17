@@ -63,8 +63,8 @@ export const GraphQLNoteType = t.objectType<notes.NoteModelType>({
     }),
     t.field({
       name: "createdAt",
-      type: t.NonNull(t.Int),
-      resolve: (obj) => obj.createdAt,
+      type: t.NonNull(t.String),
+      resolve: (obj) => String(obj.createdAt),
     }),
     t.field({
       name: "viewerCanEdit",
@@ -88,8 +88,8 @@ export const GraphQLNoteType = t.objectType<notes.NoteModelType>({
     }),
     t.field({
       name: "updatedAt",
-      type: t.NonNull(t.Int),
-      resolve: (obj) => obj.updatedAt,
+      type: t.NonNull(t.String),
+      resolve: (obj) => String(obj.updatedAt),
     }),
   ],
 });
