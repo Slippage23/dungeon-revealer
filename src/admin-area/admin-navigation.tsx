@@ -149,6 +149,24 @@ export const AdminNavigation: React.FC<AdminNavigationProps> = ({
 }) => {
   return (
     <NavigationContainer>
+      {/* Dashboard / Statistics Section */}
+      <NavSection>
+        <NavSectionTitle>Overview</NavSectionTitle>
+        {groupedTabs.navigation.map((tab) => (
+          <NavButton
+            key={tab.id}
+            isActive={activeTab === tab.id}
+            onClick={() => onTabChange(tab.id)}
+            _focus={{ outline: "none" }}
+            _active={{ bg: COLORS.burgundy }}
+          >
+            <TabIcon>{tab.icon}</TabIcon>
+            <TabLabel>{tab.label}</TabLabel>
+          </NavButton>
+        ))}
+        <NavDivider />
+      </NavSection>
+
       {/* Maps Section */}
       <NavSection>
         <NavSectionTitle>Maps</NavSectionTitle>

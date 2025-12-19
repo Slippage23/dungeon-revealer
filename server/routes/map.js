@@ -159,8 +159,48 @@ module.exports = ({ roleMiddleware, maps, settings, emitter }) => {
             data: mapMap(map),
           });
         })
-        .catch(handleUnexpectedError(res));
+        .catch((error) => {
+          console.error("[Map Routes] Error saving fog:", error);
+
+          // Provide helpful error message for disk space issues
+          if (error.code === "ENOSPC") {
+            return res.status(507).json({
+              error: {
+                message:
+                  "Insufficient storage space. Please free up disk space on the server.",
+                code: "ENOSPC",
+              },
+              data: null,
+            });
+          }
+
+          handleUnexpectedError(res)(error);
+        });
     });
+  });
+
+  // Reset fog to fully hidden (black) state - removes all revealed areas
+  router.delete("/map/:id/fog", roleMiddleware.dm, (req, res) => {
+    maps
+      .resetFog(req.params.id)
+      .then((map) => {
+        emitter.emit("invalidate", `Map:${map.id}`);
+        res.status(200).json({
+          error: null,
+          data: mapMap(map),
+          message: "Fog reset to fully hidden state",
+        });
+      })
+      .catch((error) => {
+        console.error("[Map Routes] Error resetting fog:", error);
+        res.status(500).json({
+          error: {
+            message: error.message || "Failed to reset fog",
+            code: error.code || "ERR_FOG_RESET_FAILED",
+          },
+          data: null,
+        });
+      });
   });
 
   router.post("/map/:id/send", roleMiddleware.dm, (req, res) => {

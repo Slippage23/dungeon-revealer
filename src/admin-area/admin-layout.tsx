@@ -159,7 +159,7 @@ export const AdminLayout: React.FC = () => {
   const renderTabContent = () => {
     switch (activeTab) {
       case "dashboard":
-        return <DashboardTab />;
+        return <DashboardTab onNavigate={setActiveTab} />;
       case "maps":
         return <MapsTab />;
       case "tokens":
@@ -167,7 +167,7 @@ export const AdminLayout: React.FC = () => {
       case "notes":
         return <NotesTab />;
       default:
-        return <DashboardTab />;
+        return <DashboardTab onNavigate={setActiveTab} />;
     }
   };
 

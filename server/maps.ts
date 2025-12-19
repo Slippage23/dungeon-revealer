@@ -323,6 +323,48 @@ export class Maps {
     });
   }
 
+  /**
+   * Reset fog to a completely black (hidden) state.
+   * This removes fog files and resets the map to have no revealed areas.
+   */
+  async resetFog(id: string) {
+    return await this._processTask<MapEntity>(`map:${id}`, async () => {
+      const map = this._maps.find((map) => map.id === id);
+      if (!map) {
+        throw new Error(`Map with id "${id}" not found.`);
+      }
+
+      const mapFolderPath = this._buildMapFolderPath(map.id);
+
+      // Remove existing fog files if they exist
+      if (map.fogProgressPath) {
+        const fogProgressFullPath = path.join(
+          mapFolderPath,
+          map.fogProgressPath
+        );
+        if (await fs.pathExists(fogProgressFullPath)) {
+          await fs.remove(fogProgressFullPath);
+        }
+      }
+      if (map.fogLivePath) {
+        const fogLiveFullPath = path.join(mapFolderPath, map.fogLivePath);
+        if (await fs.pathExists(fogLiveFullPath)) {
+          await fs.remove(fogLiveFullPath);
+        }
+      }
+
+      // Reset fog paths to null (no fog revealed)
+      const newMapData = {
+        fogProgressPath: null,
+        fogLivePath: null,
+        fogProgressRevision: randomUUID(),
+        fogLiveRevision: randomUUID(),
+      };
+
+      return await this._updateMapSettings(map, newMapData);
+    });
+  }
+
   async updateMapImage(
     id: string,
     {

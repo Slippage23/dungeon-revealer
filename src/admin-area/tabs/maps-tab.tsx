@@ -10,11 +10,32 @@ import {
   Spinner,
   Center,
   Input,
-  Select,
+  useToast,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+  ModalCloseButton,
+  useDisclosure,
+  FormControl,
+  FormLabel,
+  AlertDialog,
+  AlertDialogBody,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogContent,
+  AlertDialogOverlay,
 } from "@chakra-ui/react";
 import graphql from "babel-plugin-relay/macro";
-import { useQuery } from "relay-hooks";
+import { useQuery, useMutation } from "relay-hooks";
 import { mapsTab_MapsQuery } from "./__generated__/mapsTab_MapsQuery.graphql";
+import { mapsTab_MapImageRequestUploadMutation } from "./__generated__/mapsTab_MapImageRequestUploadMutation.graphql";
+import { mapsTab_MapCreateMutation } from "./__generated__/mapsTab_MapCreateMutation.graphql";
+import { mapsTab_MapDeleteMutation } from "./__generated__/mapsTab_MapDeleteMutation.graphql";
+import { mapsTab_MapUpdateTitleMutation } from "./__generated__/mapsTab_MapUpdateTitleMutation.graphql";
+import { generateSHA256FileHash } from "../../crypto";
 
 const COLORS = {
   burgundy: "#8B3A3A",
@@ -132,12 +153,282 @@ const mapsQuery = graphql`
   }
 `;
 
+const mapImageRequestUploadMutation = graphql`
+  mutation mapsTab_MapImageRequestUploadMutation(
+    $input: MapImageRequestUploadInput!
+  ) {
+    mapImageRequestUpload(input: $input) {
+      id
+      uploadUrl
+    }
+  }
+`;
+
+const mapCreateMutation = graphql`
+  mutation mapsTab_MapCreateMutation($input: MapCreateInput!) {
+    mapCreate(input: $input) {
+      ... on MapCreateSuccess {
+        __typename
+        createdMap {
+          id
+          title
+          mapImageUrl
+        }
+      }
+      ... on MapCreateError {
+        __typename
+        reason
+      }
+    }
+  }
+`;
+
+const mapDeleteMutation = graphql`
+  mutation mapsTab_MapDeleteMutation($input: MapDeleteInput!) {
+    mapDelete(input: $input)
+  }
+`;
+
+const mapUpdateTitleMutation = graphql`
+  mutation mapsTab_MapUpdateTitleMutation($input: MapUpdateTitleInput!) {
+    mapUpdateTitle(input: $input) {
+      updatedMap {
+        id
+        title
+      }
+    }
+  }
+`;
+
 export const MapsTab: React.FC = () => {
   const [searchTerm, setSearchTerm] = React.useState("");
-  const { data, isLoading, error } = useQuery<mapsTab_MapsQuery>(mapsQuery, {
-    first: 12,
-    titleNeedle: searchTerm || undefined,
-  });
+  const [isUploading, setIsUploading] = React.useState(false);
+  const [selectedMap, setSelectedMap] = React.useState<{
+    id: string;
+    title: string;
+  } | null>(null);
+  const [editTitle, setEditTitle] = React.useState("");
+  const [isDeleting, setIsDeleting] = React.useState(false);
+  const [isUpdating, setIsUpdating] = React.useState(false);
+  const [isResettingFog, setIsResettingFog] = React.useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const cancelRef = React.useRef<HTMLButtonElement>(null);
+  const cancelFogRef = React.useRef<HTMLButtonElement>(null);
+  const toast = useToast();
+
+  const {
+    isOpen: isDeleteOpen,
+    onOpen: onDeleteOpen,
+    onClose: onDeleteClose,
+  } = useDisclosure();
+  const {
+    isOpen: isEditOpen,
+    onOpen: onEditOpen,
+    onClose: onEditClose,
+  } = useDisclosure();
+  const {
+    isOpen: isResetFogOpen,
+    onOpen: onResetFogOpen,
+    onClose: onResetFogClose,
+  } = useDisclosure();
+
+  const { data, isLoading, error, retry } = useQuery<mapsTab_MapsQuery>(
+    mapsQuery,
+    {
+      first: 12,
+      titleNeedle: searchTerm || undefined,
+    }
+  );
+
+  const [mapImageRequestUpload] =
+    useMutation<mapsTab_MapImageRequestUploadMutation>(
+      mapImageRequestUploadMutation
+    );
+  const [mapCreate] = useMutation<mapsTab_MapCreateMutation>(mapCreateMutation);
+  const [mapDelete] = useMutation<mapsTab_MapDeleteMutation>(mapDeleteMutation);
+  const [mapUpdateTitle] = useMutation<mapsTab_MapUpdateTitleMutation>(
+    mapUpdateTitleMutation
+  );
+
+  const handleDeleteClick = (map: { id: string; title: string }) => {
+    setSelectedMap(map);
+    onDeleteOpen();
+  };
+
+  const handleEditClick = (map: { id: string; title: string }) => {
+    setSelectedMap(map);
+    setEditTitle(map.title);
+    onEditOpen();
+  };
+
+  const handleResetFogClick = (map: { id: string; title: string }) => {
+    setSelectedMap(map);
+    onResetFogOpen();
+  };
+
+  const handleResetFogConfirm = async () => {
+    if (!selectedMap) return;
+    setIsResettingFog(true);
+    try {
+      // Extract the actual map ID from the Relay global ID (format: base64("01:Map:actualId"))
+      const decodedId = atob(selectedMap.id);
+      const parts = decodedId.split(":");
+      const actualMapId = parts.length === 3 ? parts[2] : selectedMap.id;
+
+      const response = await fetch(`/api/map/${actualMapId}/fog`, {
+        method: "DELETE",
+      });
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || `HTTP ${response.status}`);
+      }
+      toast({
+        title: "Fog reset",
+        description: `Reset fog for map: ${selectedMap.title}`,
+        status: "success",
+        duration: 3000,
+      });
+      onResetFogClose();
+    } catch (err: any) {
+      toast({
+        title: "Reset fog failed",
+        description: err.message,
+        status: "error",
+        duration: 5000,
+      });
+    } finally {
+      setIsResettingFog(false);
+      setSelectedMap(null);
+    }
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!selectedMap) return;
+    setIsDeleting(true);
+    try {
+      await mapDelete({
+        variables: {
+          input: { mapId: selectedMap.id },
+        },
+      });
+      toast({
+        title: "Map deleted",
+        description: `Deleted map: ${selectedMap.title}`,
+        status: "success",
+        duration: 3000,
+      });
+      retry();
+      onDeleteClose();
+    } catch (err: any) {
+      toast({
+        title: "Delete failed",
+        description: err.message,
+        status: "error",
+        duration: 5000,
+      });
+    } finally {
+      setIsDeleting(false);
+      setSelectedMap(null);
+    }
+  };
+
+  const handleEditSave = async () => {
+    if (!selectedMap || !editTitle.trim()) return;
+    setIsUpdating(true);
+    try {
+      await mapUpdateTitle({
+        variables: {
+          input: { mapId: selectedMap.id, title: editTitle.trim() },
+        },
+      });
+      toast({
+        title: "Map updated",
+        description: `Renamed to: ${editTitle.trim()}`,
+        status: "success",
+        duration: 3000,
+      });
+      retry();
+      onEditClose();
+    } catch (err: any) {
+      toast({
+        title: "Update failed",
+        description: err.message,
+        status: "error",
+        duration: 5000,
+      });
+    } finally {
+      setIsUpdating(false);
+      setSelectedMap(null);
+    }
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Reset input so same file can be selected again
+    e.target.value = "";
+
+    setIsUploading(true);
+    try {
+      const hash = await generateSHA256FileHash(file);
+      const extension = file.name.split(".").pop() ?? "";
+
+      // 1. Request upload URL
+      const result = await mapImageRequestUpload({
+        variables: {
+          input: {
+            sha256: hash,
+            extension,
+          },
+        },
+      });
+
+      // 2. Upload file to the URL
+      const uploadResponse = await fetch(
+        result.mapImageRequestUpload.uploadUrl,
+        {
+          method: "PUT",
+          body: file,
+        }
+      );
+
+      if (uploadResponse.status !== 200) {
+        throw new Error("Upload failed: " + uploadResponse.statusText);
+      }
+
+      // 3. Create the map
+      const createResult = await mapCreate({
+        variables: {
+          input: {
+            title: file.name.replace(/\.[^/.]+$/, ""),
+            mapImageUploadId: result.mapImageRequestUpload.id,
+          },
+        },
+      });
+
+      if (createResult.mapCreate.__typename === "MapCreateSuccess") {
+        toast({
+          title: "Map uploaded successfully",
+          description: `Created map: ${createResult.mapCreate.createdMap.title}`,
+          status: "success",
+          duration: 3000,
+        });
+        retry(); // Refresh the list
+      } else {
+        throw new Error(createResult.mapCreate.reason);
+      }
+    } catch (err: any) {
+      toast({
+        title: "Upload failed",
+        description: err.message,
+        status: "error",
+        duration: 5000,
+      });
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   const maps = data?.maps?.edges || [];
 
@@ -185,7 +476,21 @@ export const MapsTab: React.FC = () => {
         />
 
         <HStack spacing={2}>
-          <UploadButton size="sm">📤 Upload Map</UploadButton>
+          <input
+            type="file"
+            ref={fileInputRef}
+            style={{ display: "none" }}
+            accept="image/png,image/jpeg"
+            onChange={handleFileChange}
+          />
+          <UploadButton
+            size="sm"
+            onClick={() => fileInputRef.current?.click()}
+            isLoading={isUploading}
+            loadingText="Uploading..."
+          >
+            📤 Upload Map
+          </UploadButton>
         </HStack>
       </ActionBar>
 
@@ -221,11 +526,41 @@ export const MapsTab: React.FC = () => {
                     variant="outline"
                     colorScheme="red"
                     fontSize="11px"
+                    onClick={() =>
+                      handleDeleteClick({
+                        id: edge.node.id,
+                        title: edge.node.title,
+                      })
+                    }
                   >
                     Delete
                   </Button>
-                  <Button size="xs" variant="outline" fontSize="11px">
+                  <Button
+                    size="xs"
+                    variant="outline"
+                    fontSize="11px"
+                    onClick={() =>
+                      handleEditClick({
+                        id: edge.node.id,
+                        title: edge.node.title,
+                      })
+                    }
+                  >
                     Edit
+                  </Button>
+                  <Button
+                    size="xs"
+                    variant="outline"
+                    colorScheme="orange"
+                    fontSize="11px"
+                    onClick={() =>
+                      handleResetFogClick({
+                        id: edge.node.id,
+                        title: edge.node.title,
+                      })
+                    }
+                  >
+                    Reset Fog
                   </Button>
                 </HStack>
               </MapInfo>
@@ -233,6 +568,104 @@ export const MapsTab: React.FC = () => {
           ))}
         </SimpleGrid>
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog
+        isOpen={isDeleteOpen}
+        leastDestructiveRef={cancelRef}
+        onClose={onDeleteClose}
+      >
+        <AlertDialogOverlay>
+          <AlertDialogContent bg="#454545" borderColor={COLORS.burgundy}>
+            <AlertDialogHeader color={COLORS.tanLight}>
+              Delete Map
+            </AlertDialogHeader>
+            <AlertDialogBody color={COLORS.textLight}>
+              Are you sure you want to delete "{selectedMap?.title}"? This
+              action cannot be undone.
+            </AlertDialogBody>
+            <AlertDialogFooter>
+              <Button ref={cancelRef} onClick={onDeleteClose}>
+                Cancel
+              </Button>
+              <Button
+                colorScheme="red"
+                onClick={handleDeleteConfirm}
+                ml={3}
+                isLoading={isDeleting}
+              >
+                Delete
+              </Button>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialogOverlay>
+      </AlertDialog>
+
+      {/* Edit Modal */}
+      <Modal isOpen={isEditOpen} onClose={onEditClose}>
+        <ModalOverlay />
+        <ModalContent bg="#454545" borderColor={COLORS.burgundy}>
+          <ModalHeader color={COLORS.tanLight}>Edit Map</ModalHeader>
+          <ModalCloseButton color={COLORS.textLight} />
+          <ModalBody>
+            <FormControl>
+              <FormLabel color={COLORS.textLight}>Map Title</FormLabel>
+              <Input
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                bg={COLORS.contentBg}
+                borderColor={COLORS.burgundy}
+                color={COLORS.textLight}
+              />
+            </FormControl>
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="ghost" mr={3} onClick={onEditClose}>
+              Cancel
+            </Button>
+            <Button
+              colorScheme="blue"
+              onClick={handleEditSave}
+              isLoading={isUpdating}
+            >
+              Save
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* Reset Fog Confirmation Dialog */}
+      <AlertDialog
+        isOpen={isResetFogOpen}
+        leastDestructiveRef={cancelFogRef}
+        onClose={onResetFogClose}
+      >
+        <AlertDialogOverlay>
+          <AlertDialogContent bg="#454545" borderColor={COLORS.burgundy}>
+            <AlertDialogHeader color={COLORS.tanLight}>
+              Reset Fog
+            </AlertDialogHeader>
+            <AlertDialogBody color={COLORS.textLight}>
+              Are you sure you want to reset the fog for "{selectedMap?.title}"?
+              This will hide the entire map from players (full fog coverage).
+              This is useful if the fog file became corrupted.
+            </AlertDialogBody>
+            <AlertDialogFooter>
+              <Button ref={cancelFogRef} onClick={onResetFogClose}>
+                Cancel
+              </Button>
+              <Button
+                colorScheme="orange"
+                onClick={handleResetFogConfirm}
+                ml={3}
+                isLoading={isResettingFog}
+              >
+                Reset Fog
+              </Button>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialogOverlay>
+      </AlertDialog>
     </VStack>
   );
 };

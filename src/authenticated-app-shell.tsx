@@ -164,6 +164,27 @@ const AuthenticatedAppShellRenderer: React.FC<{ isMapOnly: boolean }> = ({
                   zIndex: 10,
                 }}
               >
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    justifyContent: "flex-end",
+                    padding: "0 8px 12px 0",
+                    pointerEvents: "all",
+                  }}
+                >
+                  <ChatToggleButton
+                    hasUnreadMessages={hasUnreadMessages}
+                    onClick={() => {
+                      if (chatState === "hidden") {
+                        resetUnreadMessages();
+                      }
+                      setShowChatState((state) =>
+                        state === "show" ? "hidden" : "show"
+                      );
+                    }}
+                  />
+                </div>
                 <Aside width={chatWidth}>
                   <Chat toggleShowDiceRollNotes={toggleShowDiceRollNotes} />
                 </Aside>

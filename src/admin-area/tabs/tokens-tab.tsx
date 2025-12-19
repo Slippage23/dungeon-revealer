@@ -10,10 +10,20 @@ import {
   Spinner,
   Center,
   Input,
+  useToast,
+  useDisclosure,
+  AlertDialog,
+  AlertDialogBody,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogContent,
+  AlertDialogOverlay,
 } from "@chakra-ui/react";
 import graphql from "babel-plugin-relay/macro";
 import { useQuery } from "relay-hooks";
 import { tokensTab_TokensQuery } from "./__generated__/tokensTab_TokensQuery.graphql";
+import { useAccessToken } from "../../hooks/use-access-token";
+import { buildApiUrl } from "../../public-url";
 
 const COLORS = {
   burgundy: "#8B3A3A",
@@ -135,13 +145,157 @@ const tokensQuery = graphql`
 
 export const TokensTab: React.FC = () => {
   const [searchTerm, setSearchTerm] = React.useState("");
-  const { data, isLoading, error } = useQuery<tokensTab_TokensQuery>(
+  const [isUploading, setIsUploading] = React.useState(false);
+  const [selectedToken, setSelectedToken] = React.useState<{
+    id: string;
+    title: string;
+  } | null>(null);
+  const [isDeleting, setIsDeleting] = React.useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const cancelRef = React.useRef<HTMLButtonElement>(null);
+  const toast = useToast();
+  const accessToken = useAccessToken();
+
+  const {
+    isOpen: isDeleteOpen,
+    onOpen: onDeleteOpen,
+    onClose: onDeleteClose,
+  } = useDisclosure();
+
+  const { data, isLoading, error, retry } = useQuery<tokensTab_TokensQuery>(
     tokensQuery,
     {
       first: 12,
       titleFilter: searchTerm || undefined,
     }
   );
+
+  const handleDeleteClick = (token: { id: string; title: string }) => {
+    setSelectedToken(token);
+    onDeleteOpen();
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!selectedToken) return;
+
+    // Extract the actual ID from the Relay global ID
+    // Relay IDs are base64 encoded: "01:TypeName:actualId"
+    let tokenId = selectedToken.id;
+    try {
+      const decoded = atob(tokenId);
+      const parts = decoded.split(":");
+      if (parts.length >= 3) {
+        tokenId = parts.slice(2).join(":");
+      }
+    } catch {
+      // If decoding fails, use the ID as-is
+    }
+
+    setIsDeleting(true);
+    try {
+      const response = await fetch(buildApiUrl(`/images/${tokenId}`), {
+        method: "DELETE",
+        headers: {
+          Authorization: accessToken ? `Bearer ${accessToken}` : "",
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Delete failed: ${response.statusText}`);
+      }
+
+      toast({
+        title: "Token deleted",
+        description: `Deleted token: ${selectedToken.title}`,
+        status: "success",
+        duration: 3000,
+      });
+      retry();
+      onDeleteClose();
+    } catch (err: any) {
+      toast({
+        title: "Delete failed",
+        description: err.message,
+        status: "error",
+        duration: 5000,
+      });
+    } finally {
+      setIsDeleting(false);
+      setSelectedToken(null);
+    }
+  };
+
+  const handleUploadClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileSelect = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate image file
+    if (!file.type.startsWith("image/")) {
+      toast({
+        title: "Invalid file type",
+        description: "Please select an image file",
+        status: "error",
+        duration: 3000,
+      });
+      return;
+    }
+
+    setIsUploading(true);
+
+    try {
+      // Use the REST API to upload the image
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const response = await fetch(buildApiUrl("/images"), {
+        method: "POST",
+        headers: {
+          Authorization: accessToken ? `Bearer ${accessToken}` : "",
+        },
+        body: file,
+      });
+
+      if (!response.ok) {
+        throw new Error(`Upload failed: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+
+      if (result.error) {
+        throw new Error(result.error);
+      }
+
+      toast({
+        title: "Token uploaded",
+        description: `Successfully uploaded ${file.name}`,
+        status: "success",
+        duration: 3000,
+      });
+
+      // Refresh the list
+      retry();
+    } catch (err) {
+      console.error("Token upload failed:", err);
+      toast({
+        title: "Upload failed",
+        description: err instanceof Error ? err.message : "Unknown error",
+        status: "error",
+        duration: 5000,
+      });
+    } finally {
+      setIsUploading(false);
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  };
 
   const tokens = data?.tokenImages?.edges || [];
 
@@ -170,6 +324,15 @@ export const TokensTab: React.FC = () => {
         </Text>
       </Box>
 
+      {/* Hidden file input for upload */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        style={{ display: "none" }}
+        accept="image/*"
+        onChange={handleFileSelect}
+      />
+
       {/* Action Bar */}
       <ActionBar justifyContent="space-between" width="100%">
         <Input
@@ -185,7 +348,14 @@ export const TokensTab: React.FC = () => {
         />
 
         <HStack spacing={2}>
-          <UploadButton size="sm">📤 Upload Token</UploadButton>
+          <UploadButton
+            size="sm"
+            onClick={handleUploadClick}
+            isLoading={isUploading}
+            loadingText="Uploading..."
+          >
+            📤 Upload Token
+          </UploadButton>
         </HStack>
       </ActionBar>
 
@@ -223,6 +393,12 @@ export const TokensTab: React.FC = () => {
                     variant="outline"
                     colorScheme="red"
                     fontSize="11px"
+                    onClick={() =>
+                      handleDeleteClick({
+                        id: edge.node.id,
+                        title: edge.node.title,
+                      })
+                    }
                   >
                     Delete
                   </Button>
@@ -232,6 +408,38 @@ export const TokensTab: React.FC = () => {
           ))}
         </SimpleGrid>
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog
+        isOpen={isDeleteOpen}
+        leastDestructiveRef={cancelRef}
+        onClose={onDeleteClose}
+      >
+        <AlertDialogOverlay>
+          <AlertDialogContent bg="#454545" borderColor={COLORS.burgundy}>
+            <AlertDialogHeader color={COLORS.tanLight}>
+              Delete Token
+            </AlertDialogHeader>
+            <AlertDialogBody color={COLORS.textLight}>
+              Are you sure you want to delete "{selectedToken?.title}"? This
+              action cannot be undone.
+            </AlertDialogBody>
+            <AlertDialogFooter>
+              <Button ref={cancelRef} onClick={onDeleteClose}>
+                Cancel
+              </Button>
+              <Button
+                colorScheme="red"
+                onClick={handleDeleteConfirm}
+                ml={3}
+                isLoading={isDeleting}
+              >
+                Delete
+              </Button>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialogOverlay>
+      </AlertDialog>
     </VStack>
   );
 };

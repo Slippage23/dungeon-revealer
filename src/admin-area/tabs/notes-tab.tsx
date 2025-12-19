@@ -16,10 +16,28 @@ import {
   Thead,
   Th,
   TableContainer,
+  useToast,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+  ModalCloseButton,
+  useDisclosure,
+  AlertDialog,
+  AlertDialogBody,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogContent,
+  AlertDialogOverlay,
 } from "@chakra-ui/react";
 import graphql from "babel-plugin-relay/macro";
-import { useQuery } from "relay-hooks";
+import { useQuery, useMutation } from "relay-hooks";
 import { notesTab_NotesQuery } from "./__generated__/notesTab_NotesQuery.graphql";
+import { notesTab_NoteDeleteMutation } from "./__generated__/notesTab_NoteDeleteMutation.graphql";
+import { useAccessToken } from "../../hooks/use-access-token";
+import { buildApiUrl } from "../../public-url";
 
 const COLORS = {
   burgundy: "#8B3A3A",
@@ -102,6 +120,7 @@ const notesQuery = graphql`
         node {
           id
           title
+          content
           createdAt
         }
       }
@@ -113,11 +132,166 @@ const notesQuery = graphql`
   }
 `;
 
+const noteDeleteMutation = graphql`
+  mutation notesTab_NoteDeleteMutation($input: NoteDeleteInput!) {
+    noteDelete(input: $input) {
+      success
+      deletedNoteId
+    }
+  }
+`;
+
 export const NotesTab: React.FC = () => {
   const [searchTerm, setSearchTerm] = React.useState("");
-  const { data, isLoading, error } = useQuery<notesTab_NotesQuery>(notesQuery, {
-    first: 50,
-  });
+  const [isImporting, setIsImporting] = React.useState(false);
+  const [selectedNote, setSelectedNote] = React.useState<{
+    id: string;
+    title: string;
+    content?: string;
+  } | null>(null);
+  const [isDeleting, setIsDeleting] = React.useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const cancelRef = React.useRef<HTMLButtonElement>(null);
+  const toast = useToast();
+  const accessToken = useAccessToken();
+
+  const {
+    isOpen: isDeleteOpen,
+    onOpen: onDeleteOpen,
+    onClose: onDeleteClose,
+  } = useDisclosure();
+  const {
+    isOpen: isViewOpen,
+    onOpen: onViewOpen,
+    onClose: onViewClose,
+  } = useDisclosure();
+
+  const { data, isLoading, error, retry } = useQuery<notesTab_NotesQuery>(
+    notesQuery,
+    {
+      first: 50,
+    }
+  );
+
+  const [noteDelete] =
+    useMutation<notesTab_NoteDeleteMutation>(noteDeleteMutation);
+
+  const handleDeleteClick = (note: { id: string; title: string }) => {
+    setSelectedNote(note);
+    onDeleteOpen();
+  };
+
+  const handleViewClick = (note: {
+    id: string;
+    title: string;
+    content?: string;
+  }) => {
+    setSelectedNote(note);
+    onViewOpen();
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!selectedNote) return;
+    setIsDeleting(true);
+    try {
+      await noteDelete({
+        variables: {
+          input: { noteId: selectedNote.id },
+        },
+      });
+      toast({
+        title: "Note deleted",
+        description: `Deleted note: ${selectedNote.title}`,
+        status: "success",
+        duration: 3000,
+      });
+      retry();
+      onDeleteClose();
+    } catch (err: any) {
+      toast({
+        title: "Delete failed",
+        description: err.message,
+        status: "error",
+        duration: 5000,
+      });
+    } finally {
+      setIsDeleting(false);
+      setSelectedNote(null);
+    }
+  };
+
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileSelect = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    const validExtensions = [".md", ".zip"];
+    const isValid = validExtensions.some((ext) =>
+      file.name.toLowerCase().endsWith(ext)
+    );
+    if (!isValid) {
+      toast({
+        title: "Invalid file type",
+        description: "Please select a .md or .zip file",
+        status: "error",
+        duration: 3000,
+      });
+      return;
+    }
+
+    setIsImporting(true);
+
+    try {
+      const response = await fetch(buildApiUrl("/notes/import"), {
+        method: "POST",
+        headers: {
+          Authorization: accessToken ? `Bearer ${accessToken}` : "",
+          "Content-Type": "application/octet-stream",
+        },
+        body: file,
+      });
+
+      if (!response.ok) {
+        throw new Error(`Import failed: ${response.statusText}`);
+      }
+
+      const text = await response.text();
+      // Parse the last line of the response (streaming response)
+      const lines = text.trim().split("\n");
+      const lastLine = lines[lines.length - 1];
+      const result = JSON.parse(lastLine);
+
+      toast({
+        title: "Import complete",
+        description: `Imported ${result.amountOfImportedRecords} notes, ${result.amountOfFailedRecords} failed`,
+        status: result.amountOfFailedRecords === 0 ? "success" : "warning",
+        duration: 5000,
+      });
+
+      // Refresh the list
+      retry();
+    } catch (err) {
+      console.error("Notes import failed:", err);
+      toast({
+        title: "Import failed",
+        description: err instanceof Error ? err.message : "Unknown error",
+        status: "error",
+        duration: 5000,
+      });
+    } finally {
+      setIsImporting(false);
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  };
 
   const notes = data?.notes?.edges?.map((edge) => edge.node) || [];
   const filteredNotes = notes.filter((note) =>
@@ -149,6 +323,15 @@ export const NotesTab: React.FC = () => {
         </Text>
       </Box>
 
+      {/* Hidden file input for import */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        style={{ display: "none" }}
+        accept=".md,.zip"
+        onChange={handleFileSelect}
+      />
+
       {/* Action Bar */}
       <ActionBar justifyContent="space-between" width="100%">
         <Input
@@ -164,7 +347,14 @@ export const NotesTab: React.FC = () => {
         />
 
         <HStack spacing={2}>
-          <UploadButton size="sm">📊 Import Excel</UploadButton>
+          <UploadButton
+            size="sm"
+            onClick={handleImportClick}
+            isLoading={isImporting}
+            loadingText="Importing..."
+          >
+            📊 Import Notes
+          </UploadButton>
         </HStack>
       </ActionBar>
 
@@ -196,12 +386,21 @@ export const NotesTab: React.FC = () => {
                   <Td maxW="300px" isTruncated>
                     {note.title}
                   </Td>
-                  <Td>
-                    {new Date(parseInt(note.createdAt)).toLocaleDateString()}
-                  </Td>
+                  <Td>{new Date(note.createdAt).toLocaleDateString()}</Td>
                   <Td>
                     <HStack spacing={2}>
-                      <Button size="xs" variant="outline" fontSize="11px">
+                      <Button
+                        size="xs"
+                        variant="outline"
+                        fontSize="11px"
+                        onClick={() =>
+                          handleViewClick({
+                            id: note.id,
+                            title: note.title,
+                            content: note.content,
+                          })
+                        }
+                      >
                         View
                       </Button>
                       <Button
@@ -209,6 +408,12 @@ export const NotesTab: React.FC = () => {
                         variant="outline"
                         colorScheme="red"
                         fontSize="11px"
+                        onClick={() =>
+                          handleDeleteClick({
+                            id: note.id,
+                            title: note.title,
+                          })
+                        }
                       >
                         Delete
                       </Button>
@@ -264,6 +469,67 @@ export const NotesTab: React.FC = () => {
           </Text>
         </VStack>
       </Box>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog
+        isOpen={isDeleteOpen}
+        leastDestructiveRef={cancelRef}
+        onClose={onDeleteClose}
+      >
+        <AlertDialogOverlay>
+          <AlertDialogContent bg="#454545" borderColor={COLORS.burgundy}>
+            <AlertDialogHeader color={COLORS.tanLight}>
+              Delete Note
+            </AlertDialogHeader>
+            <AlertDialogBody color={COLORS.textLight}>
+              Are you sure you want to delete "{selectedNote?.title}"? This
+              action cannot be undone.
+            </AlertDialogBody>
+            <AlertDialogFooter>
+              <Button ref={cancelRef} onClick={onDeleteClose}>
+                Cancel
+              </Button>
+              <Button
+                colorScheme="red"
+                onClick={handleDeleteConfirm}
+                ml={3}
+                isLoading={isDeleting}
+              >
+                Delete
+              </Button>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialogOverlay>
+      </AlertDialog>
+
+      {/* View Note Modal */}
+      <Modal isOpen={isViewOpen} onClose={onViewClose} size="xl">
+        <ModalOverlay />
+        <ModalContent bg="#454545" borderColor={COLORS.burgundy} maxH="80vh">
+          <ModalHeader color={COLORS.tanLight}>
+            {selectedNote?.title}
+          </ModalHeader>
+          <ModalCloseButton color={COLORS.textLight} />
+          <ModalBody overflowY="auto">
+            <Box
+              color={COLORS.textLight}
+              whiteSpace="pre-wrap"
+              fontFamily="monospace"
+              fontSize="13px"
+              bg={COLORS.contentBg}
+              p={4}
+              borderRadius="4px"
+              maxH="60vh"
+              overflowY="auto"
+            >
+              {selectedNote?.content || "No content"}
+            </Box>
+          </ModalBody>
+          <ModalFooter>
+            <Button onClick={onViewClose}>Close</Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     </VStack>
   );
 };

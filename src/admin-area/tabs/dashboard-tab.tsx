@@ -180,7 +180,9 @@ const notesQuery = graphql`
   }
 `;
 
-export const DashboardTab: React.FC = () => {
+export const DashboardTab: React.FC<{
+  onNavigate?: (tab: "dashboard" | "maps" | "tokens" | "notes") => void;
+}> = ({ onNavigate }) => {
   const mapQueryResult = useQuery<dashboardTab_MapsQuery>(mapQuery, {
     first: 50,
   });
@@ -260,22 +262,29 @@ export const DashboardTab: React.FC = () => {
       >
         <SectionTitle>🎯 Quick Actions</SectionTitle>
         <HStack spacing={6} mt={6} wrap="wrap">
-          <ActionButton leftIcon={<span>📤</span>}>Start Upload</ActionButton>
+          <ActionButton
+            leftIcon={<span>📤</span>}
+            onClick={() => onNavigate?.("maps")}
+          >
+            Upload Map
+          </ActionButton>
           <ActionButton
             leftIcon={<span>🗺️</span>}
             bg={COLORS.contentBg}
             borderColor={COLORS.tanDark}
             _hover={{ bg: COLORS.burgundyDarker }}
+            onClick={() => onNavigate?.("maps")}
           >
             View Maps
           </ActionButton>
           <ActionButton
-            leftIcon={<span>⚙️</span>}
+            leftIcon={<span>🎯</span>}
             bg={COLORS.contentBg}
             borderColor={COLORS.tanDark}
             _hover={{ bg: COLORS.burgundyDarker }}
+            onClick={() => onNavigate?.("tokens")}
           >
-            Configure
+            Manage Tokens
           </ActionButton>
         </HStack>
       </Box>

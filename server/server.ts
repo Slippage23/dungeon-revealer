@@ -67,37 +67,33 @@ export const bootstrapServer = async (env: ReturnType<typeof getEnv>) => {
   app.use(bodyParser.json({ limit: "50mb" }));
   app.use(bodyParser.urlencoded({ limit: "50mb", extended: true }));
 
-  const getRole = (password: string) => {
-    let role = null;
-    if (env.PC_PASSWORD) {
-      if (password === env.PC_PASSWORD) {
-        role = "PC";
-      }
-    } else {
-      role = "PC";
-    }
-    if (env.DM_PASSWORD) {
-      if (password === env.DM_PASSWORD) {
-        role = "DM";
-      }
-    } else {
-      role = "DM";
-    }
-    return role;
+  const getRole = (password: string | null | undefined) => {
+    // If no token provided, unauthenticated
+    if (!password) return null;
+
+    // Only grant DM role when DM_PASSWORD is configured and matches exactly
+    if (env.DM_PASSWORD && password === env.DM_PASSWORD) return "DM";
+
+    // Only grant PC role when PC_PASSWORD is configured and matches exactly
+    if (env.PC_PASSWORD && password === env.PC_PASSWORD) return "PC";
+
+    // If neither password matches, return null (unauthenticated)
+    return null;
   };
 
   const authorizationMiddleware: RequestHandler = (req, res, next) => {
     const authHeader = req.headers.authorization;
     const authParam = req.query.authorization;
-    let token = null;
+    let token: string | null = null;
 
     if (authHeader) {
-      token = req.headers.authorization!.split(" ")[1];
+      const parts = req.headers.authorization!.split(" ");
+      if (parts.length === 2) token = parts[1];
     } else if (authParam) {
-      token = authParam;
+      token = String(authParam);
     }
 
-    (req as RequestWithRole).role = getRole(token as string);
+    (req as RequestWithRole).role = getRole(token);
     next();
   };
 

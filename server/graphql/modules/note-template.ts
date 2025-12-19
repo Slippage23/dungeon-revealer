@@ -89,8 +89,8 @@ const GraphQLNoteTemplateType =
       }),
       t.field({
         name: "createdAt",
-        type: t.NonNull(t.Int),
-        resolve: (record) => record.createdAt,
+        type: t.NonNull(t.String),
+        resolve: (record) => new Date(record.createdAt).toISOString(),
       }),
     ],
   });

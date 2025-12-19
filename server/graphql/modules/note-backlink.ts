@@ -41,8 +41,8 @@ const GraphQLNoteBacklinkType =
       }),
       t.field({
         name: "createdAt",
-        type: t.NonNull(t.Int),
-        resolve: (obj) => obj.created_at,
+        type: t.NonNull(t.String),
+        resolve: (obj) => new Date(obj.created_at).toISOString(),
       }),
     ],
   });

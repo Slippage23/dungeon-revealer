@@ -10,3 +10,8 @@ docs/
 wiki/
 .vscode
 *.md
+Manager/
+.git/
+.devcontainer/
+.dependencygraph/
+.husky/
