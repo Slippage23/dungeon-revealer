@@ -220,21 +220,6 @@ export const AdminNavigation: React.FC<AdminNavigationProps> = ({
         ))}
         <NavDivider />
       </NavSection>
-
-      {/* Settings Section */}
-      <NavSection style={{ marginTop: "auto" }}>
-        <NavSectionTitle>Settings</NavSectionTitle>
-        <NavButton
-          isActive={false}
-          onClick={() => {}}
-          _focus={{ outline: "none" }}
-          opacity={0.6}
-          cursor="not-allowed"
-        >
-          <TabIcon>⚙️</TabIcon>
-          <TabLabel>Configuration</TabLabel>
-        </NavButton>
-      </NavSection>
     </NavigationContainer>
   );
 };

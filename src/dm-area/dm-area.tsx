@@ -199,7 +199,11 @@ const Content = ({
       if (!resolvedTokenIds || resolvedTokenIds.length === 0) {
         console.log("[RemoveAllTokens] tokenIds empty, fetching from REST API");
         // Fetch tokens from the REST API endpoint - use /api/map/:id to get JSON metadata
-        fetch(`/api/map/${loadedMapId}`)
+        fetch(`/api/map/${loadedMapId}`, {
+          headers: {
+            Authorization: dmPassword ? `Bearer ${dmPassword}` : "",
+          },
+        })
           .then((res) => res.json())
           .then((mapData) => {
             console.log(
