@@ -325,7 +325,7 @@ export class Maps {
 
   /**
    * Reset fog to a completely black (hidden) state.
-   * This removes fog files and resets the map to have no revealed areas.
+   * This creates a new solid black fog image that hides the entire map.
    */
   async resetFog(id: string) {
     return await this._processTask<MapEntity>(`map:${id}`, async () => {
@@ -353,10 +353,90 @@ export class Maps {
         }
       }
 
-      // Reset fog paths to null (no fog revealed)
+      // Create a minimal 1x1 black PNG (the frontend will scale it to cover the map)
+      // This is a valid PNG file with a single black pixel
+      const blackPixelPng = Buffer.from([
+        0x89,
+        0x50,
+        0x4e,
+        0x47,
+        0x0d,
+        0x0a,
+        0x1a,
+        0x0a, // PNG signature
+        0x00,
+        0x00,
+        0x00,
+        0x0d, // IHDR length
+        0x49,
+        0x48,
+        0x44,
+        0x52, // IHDR type
+        0x00,
+        0x00,
+        0x00,
+        0x01, // width: 1
+        0x00,
+        0x00,
+        0x00,
+        0x01, // height: 1
+        0x08,
+        0x02, // bit depth: 8, color type: RGB
+        0x00,
+        0x00,
+        0x00, // compression, filter, interlace
+        0x90,
+        0x77,
+        0x53,
+        0xde, // IHDR CRC
+        0x00,
+        0x00,
+        0x00,
+        0x0c, // IDAT length
+        0x49,
+        0x44,
+        0x41,
+        0x54, // IDAT type
+        0x08,
+        0xd7,
+        0x63,
+        0x60,
+        0x60,
+        0x60,
+        0x00,
+        0x00, // compressed black pixel
+        0x00,
+        0x04,
+        0x00,
+        0x01, // IDAT data continued
+        0x27,
+        0x34,
+        0x27,
+        0x0a, // IDAT CRC
+        0x00,
+        0x00,
+        0x00,
+        0x00, // IEND length
+        0x49,
+        0x45,
+        0x4e,
+        0x44, // IEND type
+        0xae,
+        0x42,
+        0x60,
+        0x82, // IEND CRC
+      ]);
+
+      const fogProgressPath = path.join(mapFolderPath, "fog.progress.png");
+      const fogLivePath = path.join(mapFolderPath, "fog.live.png");
+
+      await fs.writeFile(fogProgressPath, blackPixelPng);
+      await fs.writeFile(fogLivePath, blackPixelPng);
+
+      // Update map with new fog paths
       const newMapData = {
-        fogProgressPath: null,
-        fogLivePath: null,
+        fogProgressPath: "fog.progress.png",
+        fogLivePath: "fog.live.png",
         fogProgressRevision: randomUUID(),
         fogLiveRevision: randomUUID(),
       };
