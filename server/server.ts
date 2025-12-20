@@ -146,9 +146,11 @@ export const bootstrapServer = async (env: ReturnType<typeof getEnv>) => {
 
   apiRouter.get("/active-map", requiresPcRole, (req, res) => {
     let activeMap = null;
-    const activeMapId = settings.get("currentMapId");
-    if (activeMapId) {
-      activeMap = maps.get(activeMapId);
+    const activeMapIdRaw = settings.get("currentMapId");
+    // settings.get is typed to accept any key and returns a union of all setting types.
+    // Narrow to string at runtime before calling maps.get which expects a string id.
+    if (typeof activeMapIdRaw === "string" && activeMapIdRaw.length > 0) {
+      activeMap = maps.get(activeMapIdRaw);
     }
 
     res.status(200).json({
@@ -192,6 +194,7 @@ export const bootstrapServer = async (env: ReturnType<typeof getEnv>) => {
     roleMiddleware,
     fileStorage,
   });
+  const createManagerRouter = require("./routes/manager");
 
   const socketSessionStore = createSocketSessionStore();
 
@@ -211,6 +214,14 @@ export const bootstrapServer = async (env: ReturnType<typeof getEnv>) => {
   apiRouter.use(mapsRouter);
   // apiRouter.use(notesRouter);
   apiRouter.use(fileRouter);
+  // Manager routes for bulk upload and stats
+  const { router: managerRouter } = createManagerRouter({
+    roleMiddleware,
+    maps,
+    settings,
+    fileStorage,
+  });
+  apiRouter.use(managerRouter);
   app.use(graphqlRouter);
   apiRouter.use(notesImportRouter);
 

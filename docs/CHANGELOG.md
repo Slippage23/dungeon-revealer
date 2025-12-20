@@ -2,6 +2,44 @@
 
 All notable changes to Dungeon Revealer are documented here.
 
+## [1.18.0] - January 2025
+
+### Added
+
+- **Integrated Manager Features** - Bulk upload and management tools from dungeon-revealer-manager
+
+  - Bulk map upload with multi-file support
+  - Bulk token image upload
+  - XLSX monster import (creates notes from spreadsheet stat blocks)
+  - Configurable scan directories for maps and tokens
+  - Settings editor on each management tab
+
+- **Visual Redesign** - Medieval fantasy theme
+
+  - Warm tan/cream/brown color palette (#f5ead8, #e8d4b0, #3a2f26)
+  - Folkard font for headings, Georgia for body text
+  - Improved readability with larger font sizes
+  - Consistent button styling with proper contrast
+
+- **Navigation Improvements**
+  - Footer links between Player/DM/Admin sections
+  - Simplified single Navigation section in sidebar
+  - Dashboard stats show Maps and Tokens counts
+
+### Fixed
+
+- Edit button visibility on maps page (now uses dark text)
+- Dashboard stats labels (was showing "Local Files"/"Server Maps", now shows "Maps"/"Tokens")
+- Font readability issues throughout admin interface
+
+### Technical
+
+- New manager API endpoints (`/api/manager/*`)
+- Extended settings entity for manager configuration
+- Improved admin layout component architecture
+
+---
+
 ## [1.17.1] - December 2025
 
 ### Added

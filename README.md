@@ -98,7 +98,18 @@ Heroku is a platform supporting one-click deployments and includes a free usage 
 
 ### Using the app
 
-The app is separated into two sections. One for the dungeon master and one for the players. Check out the [wiki](https://github.com/dungeon-revealer/dungeon-revealer/wiki) for a detailed walkthrough!
+The app is separated into three sections: the Dungeon Master view, the Player view, and the Admin Panel. Check out the [wiki](https://github.com/dungeon-revealer/dungeon-revealer/wiki) for a detailed walkthrough!
+
+#### Admin Panel
+
+The Admin Panel (`/admin`) provides comprehensive management tools for your dungeon-revealer installation:
+
+- **Dashboard**: View system statistics including map/token counts and connection status
+- **Maps Tab**: Browse, edit, delete maps and bulk upload multiple map images at once
+- **Tokens Tab**: Manage token images with bulk upload support
+- **Notes Tab**: Create and manage notes with XLSX monster import support (imports monster stat blocks from spreadsheets)
+
+The Admin Panel features a warm, medieval-themed design with folkard heading fonts and easy navigation between sections.
 
 #### Dungeon Master
 

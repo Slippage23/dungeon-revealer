@@ -17,91 +17,78 @@ import { dashboardTab_TokensQuery } from "./__generated__/dashboardTab_TokensQue
 import { dashboardTab_NotesQuery } from "./__generated__/dashboardTab_NotesQuery.graphql";
 
 const COLORS = {
-  burgundy: "#8B3A3A",
-  burgundyDark: "#5C2323",
-  burgundyDarker: "#3D1D1D",
-  tan: "#D4C4B9",
-  tanLight: "#E8DCD2",
-  tanDark: "#C4B4A9",
-  gold: "#B8860B",
-  darkBg: "#1A1515",
-  contentBg: "#2A2420",
-  textLight: "#E8DCD2",
-  textMuted: "#A89890",
-  accent: "#D4A574",
-  success: "#6B8E23",
+  cardBg: "#f5ead8",
+  cardBgEnd: "#e8d4b0",
+  border: "#3a2f26",
+  text: "#3a2f26",
+  textLight: "#5a4d3e",
+  accent: "#8b4513",
+  success: "#228b22",
 };
 
 const StatCard = styled(Box)`
   background: linear-gradient(
-    135deg,
-    ${COLORS.contentBg} 0%,
-    ${COLORS.burgundyDarker} 100%
+    180deg,
+    ${COLORS.cardBg} 0%,
+    ${COLORS.cardBgEnd} 100%
   );
-  border: 2px solid ${COLORS.tanDark};
-  border-radius: 6px;
+  border: 3px solid ${COLORS.border};
+  border-radius: 8px;
   padding: 28px 24px;
   text-align: center;
   transition: all 0.3s ease;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
 
   &:hover {
-    border-color: ${COLORS.gold};
+    border-color: ${COLORS.accent};
     transform: translateY(-4px);
-    box-shadow: 0 8px 20px rgba(184, 134, 11, 0.2);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.6),
+      inset 0 1px 0 rgba(255, 255, 255, 0.5);
   }
 `;
 
 const StatNumber = styled.div`
   font-size: 48px;
   font-weight: bold;
-  color: ${COLORS.gold};
-  font-family: Georgia, serif;
+  color: ${COLORS.text};
+  font-family: Georgia, "Times New Roman", serif;
   margin: 12px 0;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
 `;
 
 const StatLabel = styled.div`
-  font-size: 12px;
+  font-size: 14px;
   text-transform: uppercase;
   letter-spacing: 2px;
-  color: ${COLORS.textMuted};
-  font-family: Georgia, serif;
+  color: ${COLORS.textLight};
+  font-family: Georgia, "Times New Roman", serif;
 `;
 
 const SectionTitle = styled.h2`
-  font-size: 24px;
+  font-size: 22px;
   font-weight: bold;
-  color: ${COLORS.tanLight};
-  margin-bottom: 4px;
-  font-family: Georgia, serif;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-
-  &::after {
-    content: "";
-    flex: 1;
-    height: 1px;
-    background: linear-gradient(90deg, ${COLORS.burgundy}, transparent);
-  }
+  color: ${COLORS.text};
+  margin-bottom: 12px;
+  font-family: folkard, Georgia, serif;
+  text-transform: uppercase;
+  letter-spacing: 1px;
 `;
 
 const SectionDescription = styled.p`
-  font-size: 13px;
-  color: ${COLORS.textMuted};
-  margin-bottom: 20px;
-  font-style: italic;
+  font-size: 16px;
+  color: ${COLORS.textLight};
+  margin-bottom: 16px;
+  font-family: Georgia, "Times New Roman", serif;
 `;
 
 const ActionButton = styled(Button)`
-  background-color: ${COLORS.burgundy};
-  color: ${COLORS.tanLight};
-  border: 1px solid ${COLORS.gold};
-  border-radius: 4px;
-  padding: 10px 16px;
-  font-family: Georgia, serif;
-  font-size: 12px;
+  background-color: ${COLORS.accent};
+  color: #fff;
+  border: 2px solid ${COLORS.border};
+  border-radius: 6px;
+  padding: 12px 20px;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 14px;
   font-weight: bold;
   text-transform: uppercase;
   letter-spacing: 1px;
@@ -111,10 +98,10 @@ const ActionButton = styled(Button)`
   gap: 8px;
 
   &:hover {
-    background-color: ${COLORS.burgundyDark};
-    border-color: ${COLORS.tanLight};
+    background-color: ${COLORS.border};
+    border-color: ${COLORS.accent};
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(139, 58, 58, 0.4);
+    box-shadow: 0 4px 12px rgba(58, 47, 38, 0.4);
   }
 
   &:active {
@@ -123,11 +110,11 @@ const ActionButton = styled(Button)`
 `;
 
 const PageTitle = styled.h1`
-  font-size: 32px;
+  font-size: 36px;
   font-weight: bold;
-  color: ${COLORS.tanLight};
+  color: ${COLORS.text};
   margin-bottom: 24px;
-  font-family: Georgia, serif;
+  font-family: folkard, Georgia, serif;
   text-transform: uppercase;
   letter-spacing: 2px;
   display: flex;
@@ -205,7 +192,7 @@ export const DashboardTab: React.FC<{
   if (isLoading) {
     return (
       <Center height="300px">
-        <Spinner size="xl" color={COLORS.tan} />
+        <Spinner size="xl" color={COLORS.accent} />
       </Center>
     );
   }
@@ -223,12 +210,12 @@ export const DashboardTab: React.FC<{
       {/* Statistics Grid */}
       <SimpleGrid columns={{ base: 1, md: 3 }} spacing={8}>
         <StatCard>
-          <StatLabel>Local Files</StatLabel>
+          <StatLabel>Maps</StatLabel>
           <StatNumber>{mapsCount}</StatNumber>
         </StatCard>
 
         <StatCard>
-          <StatLabel>Server Maps</StatLabel>
+          <StatLabel>Tokens</StatLabel>
           <StatNumber>{tokensCount}</StatNumber>
         </StatCard>
 
@@ -253,12 +240,12 @@ export const DashboardTab: React.FC<{
 
       {/* Quick Actions Section */}
       <Box
-        bg={`linear-gradient(135deg, ${COLORS.contentBg} 0%, ${COLORS.burgundyDarker} 100%)`}
-        border={`2px solid ${COLORS.tanDark}`}
-        borderRadius="6px"
+        bg={`linear-gradient(180deg, ${COLORS.cardBg} 0%, ${COLORS.cardBgEnd} 100%)`}
+        border={`3px solid ${COLORS.border}`}
+        borderRadius="8px"
         p={8}
         mt={4}
-        boxShadow="0 4px 12px rgba(0, 0, 0, 0.6)"
+        boxShadow="0 6px 16px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.5)"
       >
         <SectionTitle>🎯 Quick Actions</SectionTitle>
         <HStack spacing={6} mt={6} wrap="wrap">
@@ -270,18 +257,12 @@ export const DashboardTab: React.FC<{
           </ActionButton>
           <ActionButton
             leftIcon={<span>🗺️</span>}
-            bg={COLORS.contentBg}
-            borderColor={COLORS.tanDark}
-            _hover={{ bg: COLORS.burgundyDarker }}
             onClick={() => onNavigate?.("maps")}
           >
             View Maps
           </ActionButton>
           <ActionButton
             leftIcon={<span>🎯</span>}
-            bg={COLORS.contentBg}
-            borderColor={COLORS.tanDark}
-            _hover={{ bg: COLORS.burgundyDarker }}
             onClick={() => onNavigate?.("tokens")}
           >
             Manage Tokens

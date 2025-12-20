@@ -12,6 +12,12 @@ export const globalStyles = css`
     src: url("${buildUrl("/fonts/KnightsTemplar.woff")}") format("woff");
   }
 
+  @font-face {
+    font-family: "GoudyMediaeval";
+    src: url("${buildUrl("/fonts/Goudy Mediaeval Regular.woff")}")
+      format("woff");
+  }
+
   * {
     box-sizing: border-box;
   }

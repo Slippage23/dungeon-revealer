@@ -64,9 +64,15 @@ export const AuthenticationScreen: React.FC<{
         </ButtonContainer>
         <div>
           {requiredRole === "DM" ? (
-            <Link href="/">Visit Player Section{" >"}</Link>
+            <React.Fragment>
+              <Link href="/">Visit Player Section{" >"}</Link>
+              <Link href="/admin">Visit Admin Section{" >"}</Link>
+            </React.Fragment>
           ) : (
-            <Link href="/dm">Visit DM Section{" >"}</Link>
+            <React.Fragment>
+              <Link href="/dm">Visit DM Section{" >"}</Link>
+              <Link href="/admin">Visit Admin Section{" >"}</Link>
+            </React.Fragment>
           )}
         </div>
       </form>

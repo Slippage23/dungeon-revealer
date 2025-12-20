@@ -10,18 +10,34 @@ interface AdminNavigationProps {
 }
 
 const COLORS = {
-  burgundy: "#8B3A3A",
-  burgundyDark: "#5C2323",
-  burgundyDarker: "#3D1D1D",
-  tan: "#D4C4B9",
-  tanLight: "#E8DCD2",
-  tanDark: "#C4B4A9",
-  gold: "#B8860B",
-  darkBg: "#1A1515",
-  contentBg: "#2A2420",
-  textLight: "#E8DCD2",
-  textMuted: "#A89890",
-  accent: "#D4A574",
+  // Manager-style color palette
+  darkBg: "#1a1410",
+  sidebarBg: "#2a2218",
+
+  // Tan/cream tones
+  tan: "#d4c4a8",
+  tanLight: "#e8dcc8",
+  tanDark: "#c8b898",
+
+  // Text colors
+  textLight: "#e8dcc8",
+  textMuted: "#a89878",
+  textGold: "#c8a858",
+
+  // Button colors matching manager
+  buttonTan: "#c8b898",
+  buttonTanHover: "#d8c8a8",
+  buttonGreen: "#4a7848",
+  buttonGreenHover: "#5a8858",
+  buttonRed: "#8b4848",
+  buttonRedHover: "#9b5858",
+
+  // Accents
+  gold: "#c8a858",
+  burgundy: "#6a4a38",
+  burgundyDark: "#4a3428",
+  burgundyDarker: "#3a2820",
+  accent: "#c8a858",
 };
 
 const NavigationContainer = styled(VStack)`
@@ -37,13 +53,13 @@ const NavSection = styled(VStack)`
 `;
 
 const NavSectionTitle = styled.div`
-  font-size: 11px;
+  font-size: 13px;
   font-weight: bold;
-  color: ${COLORS.gold};
+  color: ${COLORS.textGold};
   text-transform: uppercase;
-  letter-spacing: 2px;
-  padding: 16px 16px 8px 16px;
-  font-family: Georgia, serif;
+  letter-spacing: 1.5px;
+  padding: 12px 16px 6px 16px;
+  font-family: folkard, Georgia, serif;
 `;
 
 const NavDivider = styled.div`
@@ -51,53 +67,86 @@ const NavDivider = styled.div`
   background: linear-gradient(
     90deg,
     transparent,
-    ${COLORS.burgundy},
+    ${COLORS.gold}40,
     transparent
   );
-  margin: 12px 0;
+  margin: 8px 0;
   width: 100%;
 `;
 
-const NavButton = styled(Button)<{ isActive: boolean }>`
-  width: 100%;
-  background-color: ${(props) =>
-    props.isActive ? COLORS.burgundy : "transparent"};
-  color: ${(props) => (props.isActive ? COLORS.tanLight : COLORS.textLight)};
-  border: 1px solid ${(props) => (props.isActive ? COLORS.gold : "transparent")};
-  border-left: 4px solid
-    ${(props) => (props.isActive ? COLORS.gold : "transparent")};
-  border-radius: 2px;
+const NavButton = styled(Button)<{
+  isActive: boolean;
+  buttonColor?: "tan" | "green" | "red";
+}>`
+  width: calc(100% - 16px);
+  background-color: ${(props) => {
+    if (props.isActive) {
+      switch (props.buttonColor) {
+        case "green":
+          return COLORS.buttonGreen;
+        case "red":
+          return COLORS.buttonRed;
+        default:
+          return COLORS.buttonTan;
+      }
+    }
+    switch (props.buttonColor) {
+      case "green":
+        return COLORS.buttonGreen;
+      case "red":
+        return COLORS.buttonRed;
+      default:
+        return COLORS.buttonTan;
+    }
+  }};
+  color: ${(props) => {
+    if (props.buttonColor === "green" || props.buttonColor === "red") {
+      return COLORS.tanLight;
+    }
+    return COLORS.burgundyDarker;
+  }};
+  border: 1px solid
+    ${(props) => (props.isActive ? COLORS.gold : "rgba(0,0,0,0.2)")};
+  border-radius: 3px;
   text-align: left;
-  padding: 12px 16px;
-  margin: 0 8px;
-  font-family: Georgia, serif;
-  font-size: 13px;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  font-weight: ${(props) => (props.isActive ? "bold" : "normal")};
-  transition: all 0.3s ease;
+  padding: 12px 14px;
+  margin: 2px 8px;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 14px;
+  letter-spacing: 0.5px;
+  font-weight: 500;
+  transition: all 0.2s ease;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
+  box-shadow: ${(props) =>
+    props.isActive
+      ? "inset 0 1px 0 rgba(255,255,255,0.2), 0 2px 4px rgba(0,0,0,0.3)"
+      : "0 2px 4px rgba(0,0,0,0.2)"};
 
   &:hover {
-    background-color: ${(props) =>
-      props.isActive ? COLORS.burgundyDark : COLORS.burgundyDarker};
-    border-left-color: ${COLORS.gold};
-    color: ${COLORS.tanLight};
+    background-color: ${(props) => {
+      switch (props.buttonColor) {
+        case "green":
+          return COLORS.buttonGreenHover;
+        case "red":
+          return COLORS.buttonRedHover;
+        default:
+          return COLORS.buttonTanHover;
+      }
+    }};
+    transform: translateY(-1px);
+    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.3);
   }
 
   &:active {
-    transform: scale(0.98);
-  }
-
-  &:not(:last-child) {
-    margin-bottom: 4px;
+    transform: translateY(0);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.2);
   }
 
   &:focus {
     outline: none;
-    box-shadow: inset 0 0 0 2px ${COLORS.gold};
+    box-shadow: 0 0 0 2px ${COLORS.gold};
   }
 `;
 
@@ -119,20 +168,35 @@ const tabs: Array<{
   label: string;
   icon: string;
   section: string;
+  buttonColor?: "tan" | "green" | "red";
 }> = [
-  { id: "dashboard", label: "Dashboard", icon: "📊", section: "navigation" },
-  { id: "maps", label: "List Maps", icon: "🗺️", section: "maps" },
+  {
+    id: "dashboard",
+    label: "Dashboard",
+    icon: "📊",
+    section: "navigation",
+    buttonColor: "tan",
+  },
+  {
+    id: "maps",
+    label: "List Maps",
+    icon: "�",
+    section: "maps",
+    buttonColor: "tan",
+  },
   {
     id: "tokens",
     label: "List Tokens",
     icon: "🎯",
     section: "token-management",
+    buttonColor: "tan",
   },
   {
     id: "notes",
     label: "Import Monster Notes",
-    icon: "📝",
+    icon: "�",
     section: "note-import",
+    buttonColor: "tan",
   },
 ];
 
@@ -149,76 +213,21 @@ export const AdminNavigation: React.FC<AdminNavigationProps> = ({
 }) => {
   return (
     <NavigationContainer>
-      {/* Dashboard / Statistics Section */}
+      {/* All Navigation Items */}
       <NavSection>
-        <NavSectionTitle>Overview</NavSectionTitle>
-        {groupedTabs.navigation.map((tab) => (
+        <NavSectionTitle>Navigation</NavSectionTitle>
+        {tabs.map((tab) => (
           <NavButton
             key={tab.id}
             isActive={activeTab === tab.id}
+            buttonColor={tab.buttonColor}
             onClick={() => onTabChange(tab.id)}
             _focus={{ outline: "none" }}
-            _active={{ bg: COLORS.burgundy }}
           >
             <TabIcon>{tab.icon}</TabIcon>
             <TabLabel>{tab.label}</TabLabel>
           </NavButton>
         ))}
-        <NavDivider />
-      </NavSection>
-
-      {/* Maps Section */}
-      <NavSection>
-        <NavSectionTitle>Maps</NavSectionTitle>
-        {groupedTabs.maps.map((tab) => (
-          <NavButton
-            key={tab.id}
-            isActive={activeTab === tab.id}
-            onClick={() => onTabChange(tab.id)}
-            _focus={{ outline: "none" }}
-            _active={{ bg: COLORS.burgundy }}
-          >
-            <TabIcon>{tab.icon}</TabIcon>
-            <TabLabel>{tab.label}</TabLabel>
-          </NavButton>
-        ))}
-        <NavDivider />
-      </NavSection>
-
-      {/* Token Management Section */}
-      <NavSection>
-        <NavSectionTitle>Token Management</NavSectionTitle>
-        {groupedTabs.tokenManagement.map((tab) => (
-          <NavButton
-            key={tab.id}
-            isActive={activeTab === tab.id}
-            onClick={() => onTabChange(tab.id)}
-            _focus={{ outline: "none" }}
-            _active={{ bg: COLORS.burgundy }}
-          >
-            <TabIcon>{tab.icon}</TabIcon>
-            <TabLabel>{tab.label}</TabLabel>
-          </NavButton>
-        ))}
-        <NavDivider />
-      </NavSection>
-
-      {/* Note Import Section */}
-      <NavSection>
-        <NavSectionTitle>Note Import</NavSectionTitle>
-        {groupedTabs.noteImport.map((tab) => (
-          <NavButton
-            key={tab.id}
-            isActive={activeTab === tab.id}
-            onClick={() => onTabChange(tab.id)}
-            _focus={{ outline: "none" }}
-            _active={{ bg: COLORS.burgundy }}
-          >
-            <TabIcon>{tab.icon}</TabIcon>
-            <TabLabel>{tab.label}</TabLabel>
-          </NavButton>
-        ))}
-        <NavDivider />
       </NavSection>
     </NavigationContainer>
   );

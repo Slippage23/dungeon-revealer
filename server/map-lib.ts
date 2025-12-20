@@ -332,7 +332,7 @@ export const getActiveMap = () =>
     RT.chainW(() => RT.ask<SettingsDependency & MapsDependency>()),
     RT.chainW((deps) => () => async () => {
       const currentMapId = deps.settings.get("currentMapId");
-      if (currentMapId) {
+      if (currentMapId && typeof currentMapId === "string") {
         return deps.maps.get(currentMapId);
       }
       return null;

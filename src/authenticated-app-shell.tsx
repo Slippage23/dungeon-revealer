@@ -22,6 +22,9 @@ import { useWindowDimensions } from "./hooks/use-window-dimensions";
 import { SplashShareImage } from "./splash-share-image";
 import { usePersistedState } from "./hooks/use-persisted-state";
 
+// Role type - must be defined early as it's used in component props
+export type AuthenticatedRole = "DM" | "Player";
+
 const useShowChatState = () =>
   usePersistedState<"show" | "hidden">("chat.state", {
     encode: (value) => value,
@@ -52,9 +55,40 @@ const useShowDiceRollNotesState = () =>
 
 const Container = styled.div`
   display: flex;
+  flex-direction: column;
   height: 100%;
   position: relative;
   overflow: hidden;
+`;
+
+const MainContent = styled.div`
+  display: flex;
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+`;
+
+const NavigationFooter = styled.div`
+  background-color: rgba(0, 0, 0, 0.8);
+  border-top: 1px solid rgba(200, 168, 88, 0.5);
+  padding: 8px 16px;
+  display: flex;
+  justify-content: center;
+  gap: 24px;
+  flex-shrink: 0;
+`;
+
+const FooterLink = styled.a`
+  color: #c8a858;
+  font-family: Georgia, serif;
+  font-size: 13px;
+  text-decoration: none;
+  transition: color 0.2s ease;
+
+  &:hover {
+    color: #e8dcc8;
+    text-decoration: underline;
+  }
 `;
 
 const Aside = styled.div<{ width: number }>`
@@ -79,10 +113,10 @@ const useChatWidth = () => {
   return chatWidth;
 };
 
-const AuthenticatedAppShellRenderer: React.FC<{ isMapOnly: boolean }> = ({
-  isMapOnly,
-  children,
-}) => {
+const AuthenticatedAppShellRenderer: React.FC<{
+  isMapOnly: boolean;
+  role: AuthenticatedRole;
+}> = ({ isMapOnly, role, children }) => {
   const [chatState, setShowChatState] = useShowChatState();
   const [diceRollNotesState, setDiceRollNotesState] =
     useShowDiceRollNotesState();
@@ -145,52 +179,68 @@ const AuthenticatedAppShellRenderer: React.FC<{ isMapOnly: boolean }> = ({
     <ChatPositionContext.Provider value={chatPositionContextValue}>
       <NoteWindowContextProvider>
         <Container>
-          <div style={{ flex: 1, position: "relative", overflow: "hidden" }}>
-            {children}
-          </div>
-          <SplashShareImage />
-          {isMapOnly === false ? (
-            <React.Fragment>
-              <animated.div
-                style={{
-                  display: "flex",
-                  position: "absolute",
-                  right: 0,
-                  height: "100%",
-                  transform: chatPosition.x.to(
-                    (value) => `translateX(${value}px)`
-                  ),
-                  pointerEvents: "none",
-                  zIndex: 10,
-                }}
-              >
-                <div
+          <MainContent>
+            <div style={{ flex: 1, position: "relative", overflow: "hidden" }}>
+              {children}
+            </div>
+            <SplashShareImage />
+            {isMapOnly === false ? (
+              <React.Fragment>
+                <animated.div
                   style={{
                     display: "flex",
-                    flexDirection: "column",
-                    justifyContent: "flex-end",
-                    padding: "0 8px 12px 0",
-                    pointerEvents: "all",
+                    position: "absolute",
+                    right: 0,
+                    height: "100%",
+                    transform: chatPosition.x.to(
+                      (value) => `translateX(${value}px)`
+                    ),
+                    pointerEvents: "none",
+                    zIndex: 10,
                   }}
                 >
-                  <ChatToggleButton
-                    hasUnreadMessages={hasUnreadMessages}
-                    onClick={() => {
-                      if (chatState === "hidden") {
-                        resetUnreadMessages();
-                      }
-                      setShowChatState((state) =>
-                        state === "show" ? "hidden" : "show"
-                      );
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      justifyContent: "flex-end",
+                      padding: "0 8px 12px 0",
+                      pointerEvents: "all",
                     }}
-                  />
-                </div>
-                <Aside width={chatWidth}>
-                  <Chat toggleShowDiceRollNotes={toggleShowDiceRollNotes} />
-                </Aside>
-              </animated.div>
-            </React.Fragment>
-          ) : null}
+                  >
+                    <ChatToggleButton
+                      hasUnreadMessages={hasUnreadMessages}
+                      onClick={() => {
+                        if (chatState === "hidden") {
+                          resetUnreadMessages();
+                        }
+                        setShowChatState((state) =>
+                          state === "show" ? "hidden" : "show"
+                        );
+                      }}
+                    />
+                  </div>
+                  <Aside width={chatWidth}>
+                    <Chat toggleShowDiceRollNotes={toggleShowDiceRollNotes} />
+                  </Aside>
+                </animated.div>
+              </React.Fragment>
+            ) : null}
+          </MainContent>
+          {/* Navigation Footer */}
+          <NavigationFooter>
+            {role === "DM" ? (
+              <React.Fragment>
+                <FooterLink href="/">Visit Player Section &gt;</FooterLink>
+                <FooterLink href="/admin">Visit Admin Section &gt;</FooterLink>
+              </React.Fragment>
+            ) : (
+              <React.Fragment>
+                <FooterLink href="/dm">Visit DM Section &gt;</FooterLink>
+                <FooterLink href="/admin">Visit Admin Section &gt;</FooterLink>
+              </React.Fragment>
+            )}
+          </NavigationFooter>
         </Container>
         {isMapOnly === false ? (
           <React.Fragment>
@@ -227,8 +277,6 @@ type ConnectionMode =
   | "authenticated"
   | "connecting"
   | "disconnected";
-
-export type AuthenticatedRole = "DM" | "Player";
 
 const RoleContext = React.createContext<AuthenticatedRole>("Player");
 
@@ -317,7 +365,7 @@ export const AuthenticatedAppShell: React.FC<{
     <RoleContext.Provider value={role}>
       <SoundSettingsProvider>
         <RelayEnvironmentProvider environment={relayEnvironment}>
-          <AuthenticatedAppShellRenderer isMapOnly={isMapOnly}>
+          <AuthenticatedAppShellRenderer isMapOnly={isMapOnly} role={role}>
             {children}
           </AuthenticatedAppShellRenderer>
         </RelayEnvironmentProvider>

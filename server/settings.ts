@@ -3,10 +3,23 @@ import * as fs from "fs-extra";
 
 type SettingsEntity = {
   currentMapId: string | null;
+  // Manager / import settings
+  scanDirectory: string;
+  tokenDirectory: string;
+  skipExisting: boolean;
+  checkpointInterval: number;
+  monsterDataFile: string | null;
+  supportedExtensions: string[];
 };
 
 const defaultSettings: Readonly<SettingsEntity> = {
   currentMapId: null,
+  scanDirectory: "",
+  tokenDirectory: "",
+  skipExisting: true,
+  checkpointInterval: 25,
+  monsterDataFile: null,
+  supportedExtensions: [".jpg", ".jpeg", ".png", ".gif", ".webp"],
 };
 
 export class Settings {
