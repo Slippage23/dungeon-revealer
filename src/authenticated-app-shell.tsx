@@ -68,29 +68,6 @@ const MainContent = styled.div`
   overflow: hidden;
 `;
 
-const NavigationFooter = styled.div`
-  background-color: rgba(0, 0, 0, 0.8);
-  border-top: 1px solid rgba(200, 168, 88, 0.5);
-  padding: 8px 16px;
-  display: flex;
-  justify-content: center;
-  gap: 24px;
-  flex-shrink: 0;
-`;
-
-const FooterLink = styled.a`
-  color: #c8a858;
-  font-family: Georgia, serif;
-  font-size: 13px;
-  text-decoration: none;
-  transition: color 0.2s ease;
-
-  &:hover {
-    color: #e8dcc8;
-    text-decoration: underline;
-  }
-`;
-
 const Aside = styled.div<{ width: number }>`
   height: 100%;
   width: ${(p) => p.width}px;
@@ -227,20 +204,6 @@ const AuthenticatedAppShellRenderer: React.FC<{
               </React.Fragment>
             ) : null}
           </MainContent>
-          {/* Navigation Footer */}
-          <NavigationFooter>
-            {role === "DM" ? (
-              <React.Fragment>
-                <FooterLink href="/">Visit Player Section &gt;</FooterLink>
-                <FooterLink href="/admin">Visit Admin Section &gt;</FooterLink>
-              </React.Fragment>
-            ) : (
-              <React.Fragment>
-                <FooterLink href="/dm">Visit DM Section &gt;</FooterLink>
-                <FooterLink href="/admin">Visit Admin Section &gt;</FooterLink>
-              </React.Fragment>
-            )}
-          </NavigationFooter>
         </Container>
         {isMapOnly === false ? (
           <React.Fragment>

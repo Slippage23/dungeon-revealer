@@ -1048,6 +1048,28 @@ export const DmMap = (props: {
                     </Toolbar.Button>
                   </Toolbar.Item>
                 </Toolbar.Group>
+                <Toolbar.Group divider>
+                  <Toolbar.Item isActive>
+                    <Toolbar.Button
+                      onClick={() => {
+                        window.location.href = "/";
+                      }}
+                    >
+                      <Icon.Users boxSize="20px" />
+                      <Icon.Label>Player</Icon.Label>
+                    </Toolbar.Button>
+                  </Toolbar.Item>
+                  <Toolbar.Item isActive>
+                    <Toolbar.Button
+                      onClick={() => {
+                        window.location.href = "/admin";
+                      }}
+                    >
+                      <Icon.Settings boxSize="20px" />
+                      <Icon.Label>Admin</Icon.Label>
+                    </Toolbar.Button>
+                  </Toolbar.Item>
+                </Toolbar.Group>
               </Toolbar>
               <MarginLeftDiv />
               <Toolbar horizontal>
