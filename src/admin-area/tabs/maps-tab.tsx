@@ -27,18 +27,12 @@ import {
   AlertDialogHeader,
   AlertDialogContent,
   AlertDialogOverlay,
-  Switch,
-  Collapse,
-  IconButton,
 } from "@chakra-ui/react";
 import graphql from "babel-plugin-relay/macro";
 import { useQuery, useMutation } from "relay-hooks";
 import { mapsTab_MapsQuery } from "./__generated__/mapsTab_MapsQuery.graphql";
-import { mapsTab_MapImageRequestUploadMutation } from "./__generated__/mapsTab_MapImageRequestUploadMutation.graphql";
-import { mapsTab_MapCreateMutation } from "./__generated__/mapsTab_MapCreateMutation.graphql";
 import { mapsTab_MapDeleteMutation } from "./__generated__/mapsTab_MapDeleteMutation.graphql";
 import { mapsTab_MapUpdateTitleMutation } from "./__generated__/mapsTab_MapUpdateTitleMutation.graphql";
-import { generateSHA256FileHash } from "../../crypto";
 import { buildApiUrl } from "../../public-url";
 import { useAccessToken } from "../../hooks/use-access-token";
 
@@ -183,36 +177,6 @@ const mapsQuery = graphql`
   }
 `;
 
-const mapImageRequestUploadMutation = graphql`
-  mutation mapsTab_MapImageRequestUploadMutation(
-    $input: MapImageRequestUploadInput!
-  ) {
-    mapImageRequestUpload(input: $input) {
-      id
-      uploadUrl
-    }
-  }
-`;
-
-const mapCreateMutation = graphql`
-  mutation mapsTab_MapCreateMutation($input: MapCreateInput!) {
-    mapCreate(input: $input) {
-      ... on MapCreateSuccess {
-        __typename
-        createdMap {
-          id
-          title
-          mapImageUrl
-        }
-      }
-      ... on MapCreateError {
-        __typename
-        reason
-      }
-    }
-  }
-`;
-
 const mapDeleteMutation = graphql`
   mutation mapsTab_MapDeleteMutation($input: MapDeleteInput!) {
     mapDelete(input: $input)
@@ -231,104 +195,9 @@ const mapUpdateTitleMutation = graphql`
 `;
 
 export const MapsTab: React.FC = () => {
-  const [managerConfig, setManagerConfig] = React.useState<any>(null);
-  const [isUploadingBulk, setIsUploadingBulk] = React.useState(false);
   const [isUploadingBrowser, setIsUploadingBrowser] = React.useState(false);
-  const [showSettings, setShowSettings] = React.useState(false);
-  const [isSavingSettings, setIsSavingSettings] = React.useState(false);
-  const [editScanDirectory, setEditScanDirectory] = React.useState("");
-  const [editSkipExisting, setEditSkipExisting] = React.useState(true);
   const accessToken = useAccessToken();
   const bulkFileInputRef = React.useRef<HTMLInputElement>(null);
-
-  const loadManagerConfig = async () => {
-    try {
-      const res = await fetch(buildApiUrl("/manager/config"), {
-        headers: {
-          Authorization: accessToken ? `Bearer ${accessToken}` : "",
-        },
-      });
-      const json = await res.json();
-      if (json && json.data) {
-        setManagerConfig(json.data);
-        setEditScanDirectory(json.data.scanDirectory || "");
-        setEditSkipExisting(json.data.skipExisting ?? true);
-      }
-    } catch (e) {
-      // ignore
-    }
-  };
-
-  React.useEffect(() => {
-    loadManagerConfig();
-  }, [accessToken]);
-
-  const handleSaveSettings = async () => {
-    setIsSavingSettings(true);
-    try {
-      const res = await fetch(buildApiUrl("/manager/config"), {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: accessToken ? `Bearer ${accessToken}` : "",
-        },
-        body: JSON.stringify({
-          scanDirectory: editScanDirectory,
-          skipExisting: editSkipExisting,
-        }),
-      });
-      const json = await res.json();
-      if (json.error) throw new Error(json.error.message);
-      toast({
-        title: "Settings saved",
-        status: "success",
-        duration: 2000,
-      });
-      loadManagerConfig();
-    } catch (err: any) {
-      toast({
-        title: "Save failed",
-        description: err.message,
-        status: "error",
-        duration: 4000,
-      });
-    } finally {
-      setIsSavingSettings(false);
-    }
-  };
-
-  const handleBulkUpload = async () => {
-    if (!confirm("Upload all images from configured Scan Directory to maps?"))
-      return;
-    setIsUploadingBulk(true);
-    try {
-      const res = await fetch(buildApiUrl("/manager/upload-maps"), {
-        method: "POST",
-        headers: {
-          Authorization: accessToken ? `Bearer ${accessToken}` : "",
-        },
-      });
-      const json = await res.json();
-      if (json.error) throw new Error(json.error.message);
-      toast({
-        title: "Bulk upload complete",
-        description: `Imported ${json.data?.imported || 0} maps`,
-        status: "success",
-        duration: 4000,
-      });
-      // Refresh maps list
-      retry();
-    } catch (err: any) {
-      toast({
-        title: "Bulk upload failed",
-        description: err.message,
-        status: "error",
-        duration: 5000,
-      });
-    } finally {
-      setIsUploadingBulk(false);
-    }
-  };
 
   const handleBrowserBulkUpload = async (
     e: React.ChangeEvent<HTMLInputElement>
@@ -390,7 +259,6 @@ export const MapsTab: React.FC = () => {
   };
 
   const [searchTerm, setSearchTerm] = React.useState("");
-  const [isUploading, setIsUploading] = React.useState(false);
   const [selectedMap, setSelectedMap] = React.useState<{
     id: string;
     title: string;
@@ -399,7 +267,6 @@ export const MapsTab: React.FC = () => {
   const [isDeleting, setIsDeleting] = React.useState(false);
   const [isUpdating, setIsUpdating] = React.useState(false);
   const [isResettingFog, setIsResettingFog] = React.useState(false);
-  const fileInputRef = React.useRef<HTMLInputElement>(null);
   const cancelRef = React.useRef<HTMLButtonElement>(null);
   const cancelFogRef = React.useRef<HTMLButtonElement>(null);
   const toast = useToast();
@@ -428,11 +295,6 @@ export const MapsTab: React.FC = () => {
     }
   );
 
-  const [mapImageRequestUpload] =
-    useMutation<mapsTab_MapImageRequestUploadMutation>(
-      mapImageRequestUploadMutation
-    );
-  const [mapCreate] = useMutation<mapsTab_MapCreateMutation>(mapCreateMutation);
   const [mapDelete] = useMutation<mapsTab_MapDeleteMutation>(mapDeleteMutation);
   const [mapUpdateTitle] = useMutation<mapsTab_MapUpdateTitleMutation>(
     mapUpdateTitleMutation
@@ -550,74 +412,6 @@ export const MapsTab: React.FC = () => {
     }
   };
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    // Reset input so same file can be selected again
-    e.target.value = "";
-
-    setIsUploading(true);
-    try {
-      const hash = await generateSHA256FileHash(file);
-      const extension = file.name.split(".").pop() ?? "";
-
-      // 1. Request upload URL
-      const result = await mapImageRequestUpload({
-        variables: {
-          input: {
-            sha256: hash,
-            extension,
-          },
-        },
-      });
-
-      // 2. Upload file to the URL
-      const uploadResponse = await fetch(
-        result.mapImageRequestUpload.uploadUrl,
-        {
-          method: "PUT",
-          body: file,
-        }
-      );
-
-      if (uploadResponse.status !== 200) {
-        throw new Error("Upload failed: " + uploadResponse.statusText);
-      }
-
-      // 3. Create the map
-      const createResult = await mapCreate({
-        variables: {
-          input: {
-            title: file.name.replace(/\.[^/.]+$/, ""),
-            mapImageUploadId: result.mapImageRequestUpload.id,
-          },
-        },
-      });
-
-      if (createResult.mapCreate.__typename === "MapCreateSuccess") {
-        toast({
-          title: "Map uploaded successfully",
-          description: `Created map: ${createResult.mapCreate.createdMap.title}`,
-          status: "success",
-          duration: 3000,
-        });
-        retry(); // Refresh the list
-      } else {
-        throw new Error(createResult.mapCreate.reason);
-      }
-    } catch (err: any) {
-      toast({
-        title: "Upload failed",
-        description: err.message,
-        status: "error",
-        duration: 5000,
-      });
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
   const maps = data?.maps?.edges || [];
 
   if (isLoading) {
@@ -642,113 +436,6 @@ export const MapsTab: React.FC = () => {
 
   return (
     <VStack align="stretch" spacing={6}>
-      {/* Bulk Upload & Settings Panel */}
-      <Box
-        bg="#454545"
-        border={`1px solid ${COLORS.burgundy}`}
-        borderRadius="4px"
-        p={4}
-      >
-        <HStack justify="space-between" mb={3}>
-          <VStack align="start" spacing={1}>
-            <Text fontSize="14px" color="#E8DCD2" fontWeight="bold">
-              Bulk Upload Maps
-            </Text>
-            <Text fontSize="12px" color="#A89890">
-              Select multiple map images from your computer, or use server path
-            </Text>
-          </VStack>
-          <HStack spacing={2}>
-            <input
-              type="file"
-              ref={bulkFileInputRef}
-              style={{ display: "none" }}
-              accept="image/png,image/jpeg,image/gif,image/webp"
-              multiple
-              onChange={handleBrowserBulkUpload}
-            />
-            <UploadButton
-              onClick={() => bulkFileInputRef.current?.click()}
-              isDisabled={isUploadingBrowser}
-              isLoading={isUploadingBrowser}
-              loadingText="Uploading..."
-            >
-              📁 Select Files
-            </UploadButton>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setShowSettings(!showSettings)}
-              color={COLORS.tanLight}
-              borderColor={COLORS.burgundy}
-            >
-              ⚙️ {showSettings ? "Hide" : "Show"} Server Path
-            </Button>
-          </HStack>
-        </HStack>
-
-        <Collapse in={showSettings} animateOpacity>
-          <Box
-            mt={4}
-            p={4}
-            bg={COLORS.contentBg}
-            borderRadius="4px"
-            border={`1px solid ${COLORS.border}`}
-          >
-            <VStack align="stretch" spacing={4}>
-              <FormControl>
-                <FormLabel color={COLORS.tanLight} fontSize="13px">
-                  Scan Directory (server path)
-                </FormLabel>
-                <Input
-                  size="sm"
-                  bg="#3A3A3A"
-                  borderColor={COLORS.burgundy}
-                  color={COLORS.textLight}
-                  value={editScanDirectory}
-                  onChange={(e) => setEditScanDirectory(e.target.value)}
-                  placeholder="e.g., C:\Maps or /home/user/maps"
-                />
-              </FormControl>
-              <FormControl display="flex" alignItems="center">
-                <FormLabel
-                  color={COLORS.tanLight}
-                  fontSize="13px"
-                  mb={0}
-                  mr={4}
-                >
-                  Skip existing maps
-                </FormLabel>
-                <Switch
-                  isChecked={editSkipExisting}
-                  onChange={(e) => setEditSkipExisting(e.target.checked)}
-                  colorScheme="green"
-                />
-              </FormControl>
-              <HStack justify="flex-end" spacing={2}>
-                <UploadButton
-                  size="sm"
-                  onClick={handleSaveSettings}
-                  isLoading={isSavingSettings}
-                  loadingText="Saving..."
-                >
-                  Save Settings
-                </UploadButton>
-                <UploadButton
-                  size="sm"
-                  onClick={handleBulkUpload}
-                  isDisabled={isUploadingBulk || !managerConfig?.scanDirectory}
-                  isLoading={isUploadingBulk}
-                  loadingText="Uploading..."
-                >
-                  Upload from Server Path
-                </UploadButton>
-              </HStack>
-            </VStack>
-          </Box>
-        </Collapse>
-      </Box>
-
       <Box>
         <PageTitle>🗺️ Maps Management</PageTitle>
         <Text color={COLORS.textLight} fontSize="14px">
@@ -773,18 +460,19 @@ export const MapsTab: React.FC = () => {
         <HStack spacing={2}>
           <input
             type="file"
-            ref={fileInputRef}
+            ref={bulkFileInputRef}
             style={{ display: "none" }}
-            accept="image/png,image/jpeg"
-            onChange={handleFileChange}
+            accept="image/png,image/jpeg,image/gif,image/webp"
+            multiple
+            onChange={handleBrowserBulkUpload}
           />
           <UploadButton
             size="sm"
-            onClick={() => fileInputRef.current?.click()}
-            isLoading={isUploading}
+            onClick={() => bulkFileInputRef.current?.click()}
+            isLoading={isUploadingBrowser}
             loadingText="Uploading..."
           >
-            📤 Upload Map
+            � Upload Maps
           </UploadButton>
         </HStack>
       </ActionBar>
