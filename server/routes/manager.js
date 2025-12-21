@@ -194,7 +194,7 @@ module.exports = ({ roleMiddleware, maps, settings, fileStorage }) => {
     async (req, res) => {
       const results = [];
       const errors = [];
-      let fileCount = 0;
+      const fileProcessingPromises = [];
 
       try {
         await new Promise((resolve, reject) => {
@@ -209,34 +209,40 @@ module.exports = ({ roleMiddleware, maps, settings, fileStorage }) => {
             const writeStream = fs.createWriteStream(tmpFile);
             file.pipe(writeStream);
 
-            fileCount++;
-
-            writeStream.on("close", async () => {
-              try {
-                const created = await maps.createMap({
-                  title,
-                  filePath: tmpFile,
-                  fileExtension,
-                });
-                results.push({ file: filename, mapId: created.id });
-              } catch (err) {
-                errors.push({ file: filename, error: err.message });
-              } finally {
-                // Clean up temp file
+            // Create a Promise that resolves when file processing is complete
+            const processingPromise = new Promise((resolveFile) => {
+              writeStream.on("close", async () => {
                 try {
-                  fs.unlinkSync(tmpFile);
-                } catch (e) {
-                  // ignore
+                  const created = await maps.createMap({
+                    title,
+                    filePath: tmpFile,
+                    fileExtension,
+                  });
+                  results.push({ file: filename, mapId: created.id });
+                } catch (err) {
+                  errors.push({ file: filename, error: err.message });
+                } finally {
+                  // Clean up temp file
+                  try {
+                    fs.unlinkSync(tmpFile);
+                  } catch (e) {
+                    // ignore
+                  }
+                  resolveFile();
                 }
-              }
+              });
+
+              writeStream.on("error", (err) => {
+                errors.push({ file: filename, error: err.message });
+                resolveFile();
+              });
             });
+
+            fileProcessingPromises.push(processingPromise);
           });
 
           req.busboy.on("close", () => {
-            // Wait a bit for all file handlers to complete
-            setTimeout(() => {
-              resolve();
-            }, 500);
+            resolve();
           });
 
           req.busboy.on("error", (err) => {
@@ -244,8 +250,8 @@ module.exports = ({ roleMiddleware, maps, settings, fileStorage }) => {
           });
         });
 
-        // Wait for all async operations to complete
-        await new Promise((resolve) => setTimeout(resolve, 1000));
+        // Wait for ALL file processing to complete
+        await Promise.all(fileProcessingPromises);
 
         res.json({
           error:
@@ -267,8 +273,7 @@ module.exports = ({ roleMiddleware, maps, settings, fileStorage }) => {
     async (req, res) => {
       const results = [];
       const errors = [];
-      let processingCount = 0;
-      let completedCount = 0;
+      const fileProcessingPromises = [];
 
       try {
         await new Promise((resolve, reject) => {
@@ -282,35 +287,40 @@ module.exports = ({ roleMiddleware, maps, settings, fileStorage }) => {
             const writeStream = fs.createWriteStream(tmpFile);
             file.pipe(writeStream);
 
-            processingCount++;
-
-            writeStream.on("close", async () => {
-              try {
-                const record = await fileStorage.store({
-                  filePath: tmpFile,
-                  fileExtension,
-                  fileName: filename,
-                });
-                results.push({ file: filename, imageId: record.id });
-              } catch (err) {
-                errors.push({ file: filename, error: err.message });
-              } finally {
-                completedCount++;
-                // Clean up temp file
+            // Create a Promise that resolves when file processing is complete
+            const processingPromise = new Promise((resolveFile) => {
+              writeStream.on("close", async () => {
                 try {
-                  fs.unlinkSync(tmpFile);
-                } catch (e) {
-                  // ignore
+                  const record = await fileStorage.store({
+                    filePath: tmpFile,
+                    fileExtension,
+                    fileName: filename,
+                  });
+                  results.push({ file: filename, imageId: record.id });
+                } catch (err) {
+                  errors.push({ file: filename, error: err.message });
+                } finally {
+                  // Clean up temp file
+                  try {
+                    fs.unlinkSync(tmpFile);
+                  } catch (e) {
+                    // ignore
+                  }
+                  resolveFile();
                 }
-              }
+              });
+
+              writeStream.on("error", (err) => {
+                errors.push({ file: filename, error: err.message });
+                resolveFile();
+              });
             });
+
+            fileProcessingPromises.push(processingPromise);
           });
 
           req.busboy.on("close", () => {
-            // Wait a bit for all file handlers to complete
-            setTimeout(() => {
-              resolve();
-            }, 500);
+            resolve();
           });
 
           req.busboy.on("error", (err) => {
@@ -318,8 +328,8 @@ module.exports = ({ roleMiddleware, maps, settings, fileStorage }) => {
           });
         });
 
-        // Wait for all async operations to complete
-        await new Promise((resolve) => setTimeout(resolve, 1000));
+        // Wait for ALL file processing to complete
+        await Promise.all(fileProcessingPromises);
 
         res.json({
           error:
