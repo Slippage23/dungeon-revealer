@@ -176,12 +176,14 @@ export const TokensTab: React.FC = () => {
   const [searchTerm, setSearchTerm] = React.useState("");
   const [isUploading, setIsUploading] = React.useState(false);
   const [isBulkUploading, setIsBulkUploading] = React.useState(false);
+  const [isUploadingBrowser, setIsUploadingBrowser] = React.useState(false);
   const [showSettings, setShowSettings] = React.useState(false);
   const [isSavingSettings, setIsSavingSettings] = React.useState(false);
   const [managerConfig, setManagerConfig] = React.useState<any>(null);
   const [editTokenDirectory, setEditTokenDirectory] = React.useState("");
   const toast = useToast();
   const accessToken = useAccessToken();
+  const bulkFileInputRef = React.useRef<HTMLInputElement>(null);
 
   const loadManagerConfig = async () => {
     try {
@@ -273,31 +275,23 @@ export const TokensTab: React.FC = () => {
     }
   };
 
-  const [selectedToken, setSelectedToken] = React.useState<{
-    id: string;
-    title: string;
-  } | null>(null);
-  const [isDeleting, setIsDeleting] = React.useState(false);
-  const [isBrowserUploading, setIsBrowserUploading] = React.useState(false);
-  const fileInputRef = React.useRef<HTMLInputElement>(null);
-  const bulkFileInputRef = React.useRef<HTMLInputElement>(null);
-  const cancelRef = React.useRef<HTMLButtonElement>(null);
-
-  // Browser-based bulk upload - select files from your computer
   const handleBrowserBulkUpload = async (
-    event: React.ChangeEvent<HTMLInputElement>
+    e: React.ChangeEvent<HTMLInputElement>
   ) => {
-    const files = event.target.files;
+    const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    setIsBrowserUploading(true);
+    // Reset input so same files can be selected again
+    e.target.value = "";
+
+    setIsUploadingBrowser(true);
     try {
       const formData = new FormData();
       for (let i = 0; i < files.length; i++) {
         formData.append("files", files[i]);
       }
 
-      const res = await fetch(buildApiUrl("/manager/upload-tokens-files"), {
+      const res = await fetch(buildApiUrl("/manager/upload-tokens-browser"), {
         method: "POST",
         headers: {
           Authorization: accessToken ? `Bearer ${accessToken}` : "",
@@ -305,23 +299,27 @@ export const TokensTab: React.FC = () => {
         body: formData,
       });
       const json = await res.json();
-      if (json.error) {
+      if (json.error && !json.data) throw new Error(json.error.message);
+
+      const imported = json.data?.imported || 0;
+      const errors = json.data?.errors || [];
+
+      if (errors.length > 0) {
         toast({
-          title: "Some uploads failed",
-          description: json.error.message,
+          title: "Partial upload",
+          description: `Imported ${imported} tokens. ${errors.length} failed.`,
           status: "warning",
           duration: 5000,
         });
-      }
-      if (json.data?.imported > 0) {
+      } else {
         toast({
           title: "Browser upload complete",
-          description: `Imported ${json.data.imported} token(s)`,
+          description: `Imported ${imported} tokens`,
           status: "success",
           duration: 4000,
         });
-        retry(); // Refresh tokens list
       }
+      retry();
     } catch (err: any) {
       toast({
         title: "Browser upload failed",
@@ -330,13 +328,17 @@ export const TokensTab: React.FC = () => {
         duration: 5000,
       });
     } finally {
-      setIsBrowserUploading(false);
-      // Reset the file input so the same files can be selected again
-      if (bulkFileInputRef.current) {
-        bulkFileInputRef.current.value = "";
-      }
+      setIsUploadingBrowser(false);
     }
   };
+
+  const [selectedToken, setSelectedToken] = React.useState<{
+    id: string;
+    title: string;
+  } | null>(null);
+  const [isDeleting, setIsDeleting] = React.useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const cancelRef = React.useRef<HTMLButtonElement>(null);
 
   const {
     isOpen: isDeleteOpen,
@@ -512,11 +514,11 @@ export const TokensTab: React.FC = () => {
               Bulk Upload Tokens
             </Text>
             <Text fontSize="12px" color="#A89890">
-              Select multiple token images from your computer to upload at once
+              Select multiple token images from your computer, or use server
+              path
             </Text>
           </VStack>
           <HStack spacing={2}>
-            {/* Hidden file input for browser bulk upload */}
             <input
               type="file"
               ref={bulkFileInputRef}
@@ -527,7 +529,8 @@ export const TokensTab: React.FC = () => {
             />
             <UploadButton
               onClick={() => bulkFileInputRef.current?.click()}
-              isLoading={isBrowserUploading}
+              isDisabled={isUploadingBrowser}
+              isLoading={isUploadingBrowser}
               loadingText="Uploading..."
             >
               📁 Select Files
@@ -539,7 +542,7 @@ export const TokensTab: React.FC = () => {
               color={COLORS.tanLight}
               borderColor={COLORS.burgundy}
             >
-              ⚙️ {showSettings ? "Hide" : "Show"} Advanced
+              ⚙️ {showSettings ? "Hide" : "Show"} Server Path
             </Button>
           </HStack>
         </HStack>
@@ -552,46 +555,40 @@ export const TokensTab: React.FC = () => {
             borderRadius="4px"
             border={`1px solid ${COLORS.border}`}
           >
-            <Text fontSize="12px" color={COLORS.textLight} mb={3}>
-              Advanced: Upload from a server directory (requires path accessible
-              to the server)
-            </Text>
             <VStack align="stretch" spacing={4}>
               <FormControl>
                 <FormLabel color={COLORS.tanLight} fontSize="13px">
-                  Server Token Directory
+                  Token Directory (server path)
                 </FormLabel>
-                <HStack>
-                  <Input
-                    size="sm"
-                    bg="#3A3A3A"
-                    borderColor={COLORS.burgundy}
-                    color={COLORS.textLight}
-                    value={editTokenDirectory}
-                    onChange={(e) => setEditTokenDirectory(e.target.value)}
-                    placeholder="e.g., /data/tokens (must be accessible to server)"
-                  />
-                  <UploadButton
-                    size="sm"
-                    onClick={handleSaveSettings}
-                    isLoading={isSavingSettings}
-                    loadingText="..."
-                  >
-                    Save
-                  </UploadButton>
-                  <UploadButton
-                    size="sm"
-                    onClick={handleBulkUploadTokens}
-                    isDisabled={
-                      isBulkUploading || !managerConfig?.tokenDirectory
-                    }
-                    isLoading={isBulkUploading}
-                    loadingText="..."
-                  >
-                    Scan & Upload
-                  </UploadButton>
-                </HStack>
+                <Input
+                  size="sm"
+                  bg="#3A3A3A"
+                  borderColor={COLORS.burgundy}
+                  color={COLORS.textLight}
+                  value={editTokenDirectory}
+                  onChange={(e) => setEditTokenDirectory(e.target.value)}
+                  placeholder="e.g., C:\Tokens or /home/user/tokens"
+                />
               </FormControl>
+              <HStack justify="flex-end" spacing={2}>
+                <UploadButton
+                  size="sm"
+                  onClick={handleSaveSettings}
+                  isLoading={isSavingSettings}
+                  loadingText="Saving..."
+                >
+                  Save Settings
+                </UploadButton>
+                <UploadButton
+                  size="sm"
+                  onClick={handleBulkUploadTokens}
+                  isDisabled={isBulkUploading || !managerConfig?.tokenDirectory}
+                  isLoading={isBulkUploading}
+                  loadingText="Uploading..."
+                >
+                  Upload from Server Path
+                </UploadButton>
+              </HStack>
             </VStack>
           </Box>
         </Collapse>

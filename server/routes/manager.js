@@ -4,17 +4,20 @@ const express = require("express");
 const fs = require("fs-extra");
 const path = require("path");
 const os = require("os");
-const { randomUUID } = require("crypto");
 
 // Helper to get a temp file path
-const getTmpFile = (extension = "") =>
-  path.join(os.tmpdir(), `dr-upload-${randomUUID()}${extension}`);
+const getTmpFile = (extension = "") => {
+  const tmpDir = os.tmpdir();
+  const randomName = `dr-upload-${Date.now()}-${Math.random()
+    .toString(36)
+    .substring(2, 15)}${extension}`;
+  return path.join(tmpDir, randomName);
+};
 
 // Helper to parse file extension from filename
 const parseFileExtension = (filename) => {
-  if (!filename) return null;
   const ext = path.extname(filename);
-  return ext ? ext.substring(1).toLowerCase() : null;
+  return ext ? ext.substring(1).toLowerCase() : "";
 };
 
 module.exports = ({ roleMiddleware, maps, settings, fileStorage }) => {
@@ -180,135 +183,154 @@ module.exports = ({ roleMiddleware, maps, settings, fileStorage }) => {
     }
   );
 
-  // ============================================
+  // ========================================
   // Browser-based file upload endpoints
-  // These accept multipart/form-data with files from the browser
-  // ============================================
+  // ========================================
 
   // Upload multiple map files from browser
   router.post(
-    "/manager/upload-maps-files",
+    "/manager/upload-maps-browser",
     roleMiddleware.dm,
     async (req, res) => {
       const results = [];
       const errors = [];
       let fileCount = 0;
 
-      req.pipe(req.busboy);
+      try {
+        await new Promise((resolve, reject) => {
+          req.pipe(req.busboy);
 
-      req.busboy.on("file", (fieldname, file, info) => {
-        fileCount++;
-        const filename = info.filename;
-        const fileExtension = parseFileExtension(filename);
-        const title = path.parse(filename).name;
-        const tmpFile = getTmpFile(`.${fileExtension || "tmp"}`);
-        const writeStream = fs.createWriteStream(tmpFile);
+          req.busboy.on("file", (fieldname, file, info) => {
+            const filename = info.filename;
+            const fileExtension = parseFileExtension(filename);
+            const title = path.parse(filename).name;
+            const tmpFile = getTmpFile(`.${fileExtension}`);
 
-        file.pipe(writeStream);
+            const writeStream = fs.createWriteStream(tmpFile);
+            file.pipe(writeStream);
 
-        writeStream.on("close", async () => {
-          try {
-            const created = await maps.createMap({
-              title,
-              filePath: tmpFile,
-              fileExtension,
+            fileCount++;
+
+            writeStream.on("close", async () => {
+              try {
+                const created = await maps.createMap({
+                  title,
+                  filePath: tmpFile,
+                  fileExtension,
+                });
+                results.push({ file: filename, mapId: created.id });
+              } catch (err) {
+                errors.push({ file: filename, error: err.message });
+              } finally {
+                // Clean up temp file
+                try {
+                  fs.unlinkSync(tmpFile);
+                } catch (e) {
+                  // ignore
+                }
+              }
             });
-            results.push({ file: filename, mapId: created.id, success: true });
-          } catch (err) {
-            errors.push({ file: filename, error: err.message });
-            // Clean up temp file on error
-            try {
-              fs.unlinkSync(tmpFile);
-            } catch (e) {
-              // ignore
-            }
-          }
-        });
-      });
-
-      req.busboy.once("close", () => {
-        // Give a small delay for all file writes to complete
-        setTimeout(() => {
-          res.json({
-            error:
-              errors.length > 0
-                ? { message: `${errors.length} file(s) failed`, errors }
-                : null,
-            data: { imported: results.length, results },
           });
-        }, 100);
-      });
 
-      req.once("end", () => {
-        if (fileCount === 0) {
-          res
-            .status(422)
-            .json({ data: null, error: { message: "No files were sent." } });
-        }
-      });
+          req.busboy.on("close", () => {
+            // Wait a bit for all file handlers to complete
+            setTimeout(() => {
+              resolve();
+            }, 500);
+          });
+
+          req.busboy.on("error", (err) => {
+            reject(err);
+          });
+        });
+
+        // Wait for all async operations to complete
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+
+        res.json({
+          error:
+            errors.length > 0
+              ? { message: `${errors.length} files failed`, details: errors }
+              : null,
+          data: { imported: results.length, results, errors },
+        });
+      } catch (err) {
+        res.status(500).json({ error: { message: err.message }, data: null });
+      }
     }
   );
 
   // Upload multiple token files from browser
   router.post(
-    "/manager/upload-tokens-files",
+    "/manager/upload-tokens-browser",
     roleMiddleware.dm,
     async (req, res) => {
       const results = [];
       const errors = [];
-      let fileCount = 0;
+      let processingCount = 0;
+      let completedCount = 0;
 
-      req.pipe(req.busboy);
+      try {
+        await new Promise((resolve, reject) => {
+          req.pipe(req.busboy);
 
-      req.busboy.on("file", (fieldname, file, info) => {
-        fileCount++;
-        const filename = info.filename;
-        const fileExtension = parseFileExtension(filename);
-        const tmpFile = getTmpFile(`.${fileExtension || "tmp"}`);
-        const writeStream = fs.createWriteStream(tmpFile);
+          req.busboy.on("file", (fieldname, file, info) => {
+            const filename = info.filename;
+            const fileExtension = parseFileExtension(filename);
+            const tmpFile = getTmpFile(`.${fileExtension}`);
 
-        file.pipe(writeStream);
+            const writeStream = fs.createWriteStream(tmpFile);
+            file.pipe(writeStream);
 
-        writeStream.on("close", async () => {
-          try {
-            const record = await fileStorage.store({
-              filePath: tmpFile,
-              fileExtension,
-              fileName: filename,
+            processingCount++;
+
+            writeStream.on("close", async () => {
+              try {
+                const record = await fileStorage.store({
+                  filePath: tmpFile,
+                  fileExtension,
+                  fileName: filename,
+                });
+                results.push({ file: filename, imageId: record.id });
+              } catch (err) {
+                errors.push({ file: filename, error: err.message });
+              } finally {
+                completedCount++;
+                // Clean up temp file
+                try {
+                  fs.unlinkSync(tmpFile);
+                } catch (e) {
+                  // ignore
+                }
+              }
             });
-            results.push({ file: filename, imageId: record.id, success: true });
-          } catch (err) {
-            errors.push({ file: filename, error: err.message });
-            // Clean up temp file on error
-            try {
-              fs.unlinkSync(tmpFile);
-            } catch (e) {
-              // ignore
-            }
-          }
-        });
-      });
-
-      req.busboy.once("close", () => {
-        // Give a small delay for all file writes to complete
-        setTimeout(() => {
-          res.json({
-            error:
-              errors.length > 0
-                ? { message: `${errors.length} file(s) failed`, errors }
-                : null,
-            data: { imported: results.length, results },
           });
-        }, 100);
-      });
 
-      req.once("end", () => {
-        if (fileCount === 0) {
-          res
-            .status(422)
-            .json({ data: null, error: { message: "No files were sent." } });
-        }
-      });
+          req.busboy.on("close", () => {
+            // Wait a bit for all file handlers to complete
+            setTimeout(() => {
+              resolve();
+            }, 500);
+          });
+
+          req.busboy.on("error", (err) => {
+            reject(err);
+          });
+        });
+
+        // Wait for all async operations to complete
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+
+        res.json({
+          error:
+            errors.length > 0
+              ? { message: `${errors.length} files failed`, details: errors }
+              : null,
+          data: { imported: results.length, results, errors },
+        });
+      } catch (err) {
+        res.status(500).json({ error: { message: err.message }, data: null });
+      }
     }
   );
 

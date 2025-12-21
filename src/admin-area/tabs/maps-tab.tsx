@@ -233,11 +233,13 @@ const mapUpdateTitleMutation = graphql`
 export const MapsTab: React.FC = () => {
   const [managerConfig, setManagerConfig] = React.useState<any>(null);
   const [isUploadingBulk, setIsUploadingBulk] = React.useState(false);
+  const [isUploadingBrowser, setIsUploadingBrowser] = React.useState(false);
   const [showSettings, setShowSettings] = React.useState(false);
   const [isSavingSettings, setIsSavingSettings] = React.useState(false);
   const [editScanDirectory, setEditScanDirectory] = React.useState("");
   const [editSkipExisting, setEditSkipExisting] = React.useState(true);
   const accessToken = useAccessToken();
+  const bulkFileInputRef = React.useRef<HTMLInputElement>(null);
 
   const loadManagerConfig = async () => {
     try {
@@ -328,21 +330,23 @@ export const MapsTab: React.FC = () => {
     }
   };
 
-  // Browser-based bulk upload - select files from your computer
   const handleBrowserBulkUpload = async (
-    event: React.ChangeEvent<HTMLInputElement>
+    e: React.ChangeEvent<HTMLInputElement>
   ) => {
-    const files = event.target.files;
+    const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    setIsBrowserUploading(true);
+    // Reset input so same files can be selected again
+    e.target.value = "";
+
+    setIsUploadingBrowser(true);
     try {
       const formData = new FormData();
       for (let i = 0; i < files.length; i++) {
         formData.append("files", files[i]);
       }
 
-      const res = await fetch(buildApiUrl("/manager/upload-maps-files"), {
+      const res = await fetch(buildApiUrl("/manager/upload-maps-browser"), {
         method: "POST",
         headers: {
           Authorization: accessToken ? `Bearer ${accessToken}` : "",
@@ -350,23 +354,28 @@ export const MapsTab: React.FC = () => {
         body: formData,
       });
       const json = await res.json();
-      if (json.error) {
+      if (json.error && !json.data) throw new Error(json.error.message);
+
+      const imported = json.data?.imported || 0;
+      const errors = json.data?.errors || [];
+
+      if (errors.length > 0) {
         toast({
-          title: "Some uploads failed",
-          description: json.error.message,
+          title: "Partial upload",
+          description: `Imported ${imported} maps. ${errors.length} failed.`,
           status: "warning",
           duration: 5000,
         });
-      }
-      if (json.data?.imported > 0) {
+      } else {
         toast({
           title: "Browser upload complete",
-          description: `Imported ${json.data.imported} map(s)`,
+          description: `Imported ${imported} maps`,
           status: "success",
           duration: 4000,
         });
-        retry(); // Refresh maps list
       }
+      // Refresh maps list
+      retry();
     } catch (err: any) {
       toast({
         title: "Browser upload failed",
@@ -375,11 +384,7 @@ export const MapsTab: React.FC = () => {
         duration: 5000,
       });
     } finally {
-      setIsBrowserUploading(false);
-      // Reset the file input so the same files can be selected again
-      if (bulkFileInputRef.current) {
-        bulkFileInputRef.current.value = "";
-      }
+      setIsUploadingBrowser(false);
     }
   };
 
@@ -393,9 +398,7 @@ export const MapsTab: React.FC = () => {
   const [isDeleting, setIsDeleting] = React.useState(false);
   const [isUpdating, setIsUpdating] = React.useState(false);
   const [isResettingFog, setIsResettingFog] = React.useState(false);
-  const [isBrowserUploading, setIsBrowserUploading] = React.useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
-  const bulkFileInputRef = React.useRef<HTMLInputElement>(null);
   const cancelRef = React.useRef<HTMLButtonElement>(null);
   const cancelFogRef = React.useRef<HTMLButtonElement>(null);
   const toast = useToast();
@@ -651,11 +654,10 @@ export const MapsTab: React.FC = () => {
               Bulk Upload Maps
             </Text>
             <Text fontSize="12px" color="#A89890">
-              Select multiple map images from your computer to upload at once
+              Select multiple map images from your computer, or use server path
             </Text>
           </VStack>
           <HStack spacing={2}>
-            {/* Hidden file input for browser bulk upload */}
             <input
               type="file"
               ref={bulkFileInputRef}
@@ -666,7 +668,8 @@ export const MapsTab: React.FC = () => {
             />
             <UploadButton
               onClick={() => bulkFileInputRef.current?.click()}
-              isLoading={isBrowserUploading}
+              isDisabled={isUploadingBrowser}
+              isLoading={isUploadingBrowser}
               loadingText="Uploading..."
             >
               📁 Select Files
@@ -678,7 +681,7 @@ export const MapsTab: React.FC = () => {
               color={COLORS.tanLight}
               borderColor={COLORS.burgundy}
             >
-              ⚙️ {showSettings ? "Hide" : "Show"} Advanced
+              ⚙️ {showSettings ? "Hide" : "Show"} Server Path
             </Button>
           </HStack>
         </HStack>
@@ -691,46 +694,55 @@ export const MapsTab: React.FC = () => {
             borderRadius="4px"
             border={`1px solid ${COLORS.border}`}
           >
-            <Text fontSize="12px" color={COLORS.textLight} mb={3}>
-              Advanced: Upload from a server directory (requires path accessible
-              to the server)
-            </Text>
             <VStack align="stretch" spacing={4}>
               <FormControl>
                 <FormLabel color={COLORS.tanLight} fontSize="13px">
-                  Server Scan Directory
+                  Scan Directory (server path)
                 </FormLabel>
-                <HStack>
-                  <Input
-                    size="sm"
-                    bg="#3A3A3A"
-                    borderColor={COLORS.burgundy}
-                    color={COLORS.textLight}
-                    value={editScanDirectory}
-                    onChange={(e) => setEditScanDirectory(e.target.value)}
-                    placeholder="e.g., /data/maps (must be accessible to server)"
-                  />
-                  <UploadButton
-                    size="sm"
-                    onClick={handleSaveSettings}
-                    isLoading={isSavingSettings}
-                    loadingText="..."
-                  >
-                    Save
-                  </UploadButton>
-                  <UploadButton
-                    size="sm"
-                    onClick={handleBulkUpload}
-                    isDisabled={
-                      isUploadingBulk || !managerConfig?.scanDirectory
-                    }
-                    isLoading={isUploadingBulk}
-                    loadingText="..."
-                  >
-                    Scan & Upload
-                  </UploadButton>
-                </HStack>
+                <Input
+                  size="sm"
+                  bg="#3A3A3A"
+                  borderColor={COLORS.burgundy}
+                  color={COLORS.textLight}
+                  value={editScanDirectory}
+                  onChange={(e) => setEditScanDirectory(e.target.value)}
+                  placeholder="e.g., C:\Maps or /home/user/maps"
+                />
               </FormControl>
+              <FormControl display="flex" alignItems="center">
+                <FormLabel
+                  color={COLORS.tanLight}
+                  fontSize="13px"
+                  mb={0}
+                  mr={4}
+                >
+                  Skip existing maps
+                </FormLabel>
+                <Switch
+                  isChecked={editSkipExisting}
+                  onChange={(e) => setEditSkipExisting(e.target.checked)}
+                  colorScheme="green"
+                />
+              </FormControl>
+              <HStack justify="flex-end" spacing={2}>
+                <UploadButton
+                  size="sm"
+                  onClick={handleSaveSettings}
+                  isLoading={isSavingSettings}
+                  loadingText="Saving..."
+                >
+                  Save Settings
+                </UploadButton>
+                <UploadButton
+                  size="sm"
+                  onClick={handleBulkUpload}
+                  isDisabled={isUploadingBulk || !managerConfig?.scanDirectory}
+                  isLoading={isUploadingBulk}
+                  loadingText="Uploading..."
+                >
+                  Upload from Server Path
+                </UploadButton>
+              </HStack>
             </VStack>
           </Box>
         </Collapse>
