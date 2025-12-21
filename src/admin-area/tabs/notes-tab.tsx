@@ -33,9 +33,6 @@ import {
   AlertDialogOverlay,
   Checkbox,
   Progress,
-  Collapse,
-  FormControl,
-  FormLabel,
 } from "@chakra-ui/react";
 import graphql from "babel-plugin-relay/macro";
 import { useQuery, useMutation } from "relay-hooks";
@@ -196,71 +193,11 @@ export const NotesTab: React.FC = () => {
     content?: string;
   } | null>(null);
   const [isDeleting, setIsDeleting] = React.useState(false);
-  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const mdFileInputRef = React.useRef<HTMLInputElement>(null);
+  const excelFileInputRef = React.useRef<HTMLInputElement>(null);
   const cancelRef = React.useRef<HTMLButtonElement>(null);
   const toast = useToast();
-
-  // Manager config for monster data file
-  const [managerConfig, setManagerConfig] = React.useState<any>(null);
-  const [editMonsterDataFile, setEditMonsterDataFile] = React.useState("");
-  const [showSettings, setShowSettings] = React.useState(false);
-  const [isSavingSettings, setIsSavingSettings] = React.useState(false);
   const accessToken = useAccessToken();
-
-  // Load manager config
-  const loadManagerConfig = async () => {
-    try {
-      const res = await fetch(buildApiUrl("/manager/config"), {
-        headers: {
-          Authorization: accessToken ? `Bearer ${accessToken}` : "",
-        },
-      });
-      const json = await res.json();
-      if (json && json.data) {
-        setManagerConfig(json.data);
-        setEditMonsterDataFile(json.data.monsterDataFile || "");
-      }
-    } catch (e) {
-      // ignore
-    }
-  };
-
-  React.useEffect(() => {
-    loadManagerConfig();
-  }, [accessToken]);
-
-  const handleSaveSettings = async () => {
-    setIsSavingSettings(true);
-    try {
-      const res = await fetch(buildApiUrl("/manager/config"), {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: accessToken ? `Bearer ${accessToken}` : "",
-        },
-        body: JSON.stringify({
-          monsterDataFile: editMonsterDataFile || null,
-        }),
-      });
-      const json = await res.json();
-      if (json.error) throw new Error(json.error.message);
-      toast({
-        title: "Settings saved",
-        status: "success",
-        duration: 2000,
-      });
-      loadManagerConfig();
-    } catch (err: any) {
-      toast({
-        title: "Save failed",
-        description: err.message,
-        status: "error",
-        duration: 4000,
-      });
-    } finally {
-      setIsSavingSettings(false);
-    }
-  };
 
   // XLSX Monster Import State
   const [monsters, setMonsters] = React.useState<MonsterData[]>([]);
@@ -296,16 +233,31 @@ export const NotesTab: React.FC = () => {
   const [noteCreate] =
     useMutation<notesTab_NoteCreateMutation>(noteCreateMutation);
 
-  // Parse monsters from Excel file on server
-  const handleParseMonsters = async () => {
+  // Parse monsters from browser-uploaded Excel file
+  const handleExcelFileSelect = async (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Reset input so same file can be selected again
+    e.target.value = "";
+
     setIsParsing(true);
     try {
-      const response = await fetch(buildApiUrl("/manager/parse-monsters"), {
-        method: "POST",
-        headers: {
-          Authorization: accessToken ? `Bearer ${accessToken}` : "",
-        },
-      });
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const response = await fetch(
+        buildApiUrl("/manager/parse-monsters-browser"),
+        {
+          method: "POST",
+          headers: {
+            Authorization: accessToken ? `Bearer ${accessToken}` : "",
+          },
+          body: formData,
+        }
+      );
       const json = await response.json();
       if (json.error) {
         throw new Error(json.error.message);
@@ -463,57 +415,71 @@ export const NotesTab: React.FC = () => {
     }
   };
 
-  const handleImportClick = () => {
-    fileInputRef.current?.click();
-  };
-
-  const handleFileSelect = async (
+  // Handle markdown/zip file import with FormData (supports multiple files)
+  const handleMdFileSelect = async (
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
 
-    // Validate file type
-    const validExtensions = [".md", ".zip"];
-    const isValid = validExtensions.some((ext) =>
-      file.name.toLowerCase().endsWith(ext)
-    );
-    if (!isValid) {
-      toast({
-        title: "Invalid file type",
-        description: "Please select a .md or .zip file",
-        status: "error",
-        duration: 3000,
-      });
-      return;
-    }
+    // Reset input so same files can be selected again
+    event.target.value = "";
 
     setIsImporting(true);
 
+    let totalImported = 0;
+    let totalFailed = 0;
+
     try {
-      const response = await fetch(buildApiUrl("/notes/import"), {
-        method: "POST",
-        headers: {
-          Authorization: accessToken ? `Bearer ${accessToken}` : "",
-          "Content-Type": "application/octet-stream",
-        },
-        body: file,
-      });
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
 
-      if (!response.ok) {
-        throw new Error(`Import failed: ${response.statusText}`);
+        // Validate file type
+        const validExtensions = [".md", ".zip"];
+        const isValid = validExtensions.some((ext) =>
+          file.name.toLowerCase().endsWith(ext)
+        );
+        if (!isValid) {
+          totalFailed++;
+          continue;
+        }
+
+        // Use FormData to send file (busboy expects multipart/form-data)
+        const formData = new FormData();
+        formData.append("file", file);
+
+        const response = await fetch(buildApiUrl("/notes/import"), {
+          method: "POST",
+          headers: {
+            Authorization: accessToken ? `Bearer ${accessToken}` : "",
+          },
+          body: formData,
+        });
+
+        if (!response.ok) {
+          totalFailed++;
+          continue;
+        }
+
+        const text = await response.text();
+        // Parse the last line of the response (streaming response)
+        const lines = text.trim().split("\n");
+        const lastLine = lines[lines.length - 1];
+        if (lastLine) {
+          try {
+            const result = JSON.parse(lastLine);
+            totalImported += result.amountOfImportedRecords || 0;
+            totalFailed += result.amountOfFailedRecords || 0;
+          } catch {
+            totalFailed++;
+          }
+        }
       }
-
-      const text = await response.text();
-      // Parse the last line of the response (streaming response)
-      const lines = text.trim().split("\n");
-      const lastLine = lines[lines.length - 1];
-      const result = JSON.parse(lastLine);
 
       toast({
         title: "Import complete",
-        description: `Imported ${result.amountOfImportedRecords} notes, ${result.amountOfFailedRecords} failed`,
-        status: result.amountOfFailedRecords === 0 ? "success" : "warning",
+        description: `Imported ${totalImported} notes, ${totalFailed} failed`,
+        status: totalFailed === 0 ? "success" : "warning",
         duration: 5000,
       });
 
@@ -529,10 +495,6 @@ export const NotesTab: React.FC = () => {
       });
     } finally {
       setIsImporting(false);
-      // Reset file input
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
     }
   };
 
@@ -562,94 +524,25 @@ export const NotesTab: React.FC = () => {
       <Box>
         <PageTitle>📝 Notes & Monsters</PageTitle>
         <Text color={COLORS.textLight} fontSize="14px">
-          Import monsters from Excel, manage shared resource notes
+          Import monsters from Excel or markdown files
         </Text>
       </Box>
 
-      {/* Excel Import Settings Panel */}
-      <Box
-        bg="#454545"
-        border={`1px solid ${COLORS.burgundy}`}
-        borderRadius="4px"
-        p={4}
-      >
-        <HStack justify="space-between" mb={3}>
-          <VStack align="start" spacing={1}>
-            <Text fontSize="14px" color="#E8DCD2" fontWeight="bold">
-              Excel Monster Import
-            </Text>
-            <Text fontSize="12px" color="#A89890">
-              {managerConfig?.monsterDataFile
-                ? `File: ${managerConfig.monsterDataFile}`
-                : "Configure a Monster Data File path to enable Excel import"}
-            </Text>
-          </VStack>
-          <HStack spacing={2}>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setShowSettings(!showSettings)}
-              color={COLORS.tanLight}
-              borderColor={COLORS.burgundy}
-            >
-              ⚙️ {showSettings ? "Hide" : "Show"} Settings
-            </Button>
-            <UploadButton
-              onClick={handleParseMonsters}
-              isDisabled={isParsing || !managerConfig?.monsterDataFile}
-              isLoading={isParsing}
-              loadingText="Parsing..."
-            >
-              📊 Import from Excel
-            </UploadButton>
-          </HStack>
-        </HStack>
-
-        <Collapse in={showSettings} animateOpacity>
-          <Box
-            mt={4}
-            p={4}
-            bg={COLORS.contentBg}
-            borderRadius="4px"
-            border={`1px solid ${COLORS.border}`}
-          >
-            <VStack align="stretch" spacing={4}>
-              <FormControl>
-                <FormLabel color={COLORS.tanLight} fontSize="13px">
-                  Monster Data File (server path to .xlsx file)
-                </FormLabel>
-                <Input
-                  size="sm"
-                  bg="#3A3A3A"
-                  borderColor={COLORS.burgundy}
-                  color={COLORS.textLight}
-                  value={editMonsterDataFile}
-                  onChange={(e) => setEditMonsterDataFile(e.target.value)}
-                  placeholder="e.g., C:\Data\monsters.xlsx or /home/user/monsters.xlsx"
-                />
-              </FormControl>
-              <HStack justify="flex-end">
-                <UploadButton
-                  size="sm"
-                  onClick={handleSaveSettings}
-                  isLoading={isSavingSettings}
-                  loadingText="Saving..."
-                >
-                  Save Settings
-                </UploadButton>
-              </HStack>
-            </VStack>
-          </Box>
-        </Collapse>
-      </Box>
-
-      {/* Hidden file input for import */}
+      {/* Hidden file inputs */}
       <input
         type="file"
-        ref={fileInputRef}
+        ref={mdFileInputRef}
         style={{ display: "none" }}
         accept=".md,.zip"
-        onChange={handleFileSelect}
+        multiple
+        onChange={handleMdFileSelect}
+      />
+      <input
+        type="file"
+        ref={excelFileInputRef}
+        style={{ display: "none" }}
+        accept=".xlsx,.xls"
+        onChange={handleExcelFileSelect}
       />
 
       {/* Action Bar */}
@@ -669,11 +562,19 @@ export const NotesTab: React.FC = () => {
         <HStack spacing={2}>
           <UploadButton
             size="sm"
-            onClick={handleImportClick}
+            onClick={() => mdFileInputRef.current?.click()}
             isLoading={isImporting}
             loadingText="Importing..."
           >
-            � Import Notes (.md/.zip)
+            📄 Import Notes (.md/.zip)
+          </UploadButton>
+          <UploadButton
+            size="sm"
+            onClick={() => excelFileInputRef.current?.click()}
+            isLoading={isParsing}
+            loadingText="Parsing..."
+          >
+            📊 Import Monsters (.xlsx)
           </UploadButton>
         </HStack>
       </ActionBar>
@@ -686,7 +587,8 @@ export const NotesTab: React.FC = () => {
               {searchTerm ? "No notes match your search" : "No notes yet"}
             </Text>
             <Text fontSize="12px" color={COLORS.textLight} opacity={0.6}>
-              Import monsters from an Excel file to get started
+              Import monsters from an Excel file or markdown notes to get
+              started
             </Text>
           </VStack>
         </Center>
@@ -745,50 +647,6 @@ export const NotesTab: React.FC = () => {
           </Table>
         </StyledTable>
       )}
-
-      {/* Import Guide */}
-      <Box
-        bg={COLORS.contentBg}
-        border={`1px solid ${COLORS.burgundy}`}
-        borderRadius="4px"
-        p={6}
-        mt={8}
-      >
-        <Text
-          fontSize="16px"
-          fontWeight="bold"
-          color={COLORS.tan}
-          mb={4}
-          fontFamily="Georgia, serif"
-          textTransform="uppercase"
-          letterSpacing="1px"
-        >
-          📖 Import Guide
-        </Text>
-        <VStack
-          align="start"
-          spacing={3}
-          fontSize="13px"
-          color={COLORS.textLight}
-        >
-          <Text>
-            <strong>Excel Format:</strong> Your file should have columns like
-            Name, AC, HP, etc.
-          </Text>
-          <Text>
-            <strong>Fuzzy Matching:</strong> Monster names are matched against
-            available tokens
-          </Text>
-          <Text>
-            <strong>Linking:</strong> Matched tokens are automatically linked to
-            created notes
-          </Text>
-          <Text>
-            <strong>Batch Import:</strong> Upload multiple monsters at once with
-            progress tracking
-          </Text>
-        </VStack>
-      </Box>
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog

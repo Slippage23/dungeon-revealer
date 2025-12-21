@@ -205,6 +205,80 @@ module.exports = ({
     }
   );
 
+  // Parse monsters from browser-uploaded Excel file
+  router.post(
+    "/manager/parse-monsters-browser",
+    roleMiddleware.dm,
+    async (req, res) => {
+      try {
+        await new Promise((resolve, reject) => {
+          if (!req.busboy) {
+            return reject(new Error("Busboy not initialized"));
+          }
+
+          req.pipe(req.busboy);
+
+          req.busboy.on("file", (fieldname, file, info) => {
+            const filename = info.filename;
+            const fileExtension = path.extname(filename).toLowerCase();
+
+            if (fileExtension !== ".xlsx" && fileExtension !== ".xls") {
+              file.resume(); // Drain the stream
+              return reject(
+                new Error("Only .xlsx or .xls files are supported")
+              );
+            }
+
+            const tmpFile = getTmpFile(fileExtension);
+            const writeStream = fs.createWriteStream(tmpFile);
+            file.pipe(writeStream);
+
+            writeStream.on("finish", async () => {
+              try {
+                const xlsx = require("xlsx");
+                const workbook = xlsx.readFile(tmpFile);
+                const sheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[sheetName];
+                const data = xlsx.utils.sheet_to_json(worksheet);
+                const monsters = data
+                  .map((row) => {
+                    const name =
+                      row["Monster Name"] || row["Name"] || row["name"] || "";
+                    return { name, data: row };
+                  })
+                  .filter((m) => m.name);
+
+                // Clean up temp file
+                fs.unlink(tmpFile, () => {});
+
+                res.json({
+                  error: null,
+                  data: { monsters, count: monsters.length },
+                });
+                resolve();
+              } catch (err) {
+                fs.unlink(tmpFile, () => {});
+                reject(err);
+              }
+            });
+
+            writeStream.on("error", (err) => {
+              fs.unlink(tmpFile, () => {});
+              reject(err);
+            });
+          });
+
+          req.busboy.on("error", reject);
+          req.busboy.on("close", resolve);
+        });
+      } catch (err) {
+        if (!res.headersSent) {
+          res.status(500).json({ error: { message: err.message }, data: null });
+        }
+      }
+    }
+  );
+
   // ========================================
   // Browser-based file upload endpoints
   // ========================================
