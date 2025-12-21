@@ -192,3 +192,10 @@ export const getPaginatedTokenImages = (
     checkAdmin(),
     RT.chainW(() => db.getPaginatedTokenImages(args))
   );
+
+export const updateTokenImageTitle = (params: { id: number; title: string }) =>
+  pipe(
+    checkAdmin(),
+    RT.chainW(() => db.updateTokenImageTitle(params)),
+    RT.chainW(() => db.getTokenById(params.id))
+  );

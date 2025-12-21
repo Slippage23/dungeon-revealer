@@ -18,14 +18,20 @@ import {
   AlertDialogHeader,
   AlertDialogContent,
   AlertDialogOverlay,
-  Switch,
-  Collapse,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalFooter,
+  ModalBody,
+  ModalCloseButton,
   FormControl,
   FormLabel,
 } from "@chakra-ui/react";
 import graphql from "babel-plugin-relay/macro";
-import { useQuery } from "relay-hooks";
+import { useQuery, useMutation } from "relay-hooks";
 import { tokensTab_TokensQuery } from "./__generated__/tokensTab_TokensQuery.graphql";
+import { tokensTab_UpdateTitleMutation } from "./__generated__/tokensTab_UpdateTitleMutation.graphql";
 import { useAccessToken } from "../../hooks/use-access-token";
 import { buildApiUrl } from "../../public-url";
 
@@ -175,122 +181,52 @@ const tokensQuery = graphql`
 export const TokensTab: React.FC = () => {
   const [searchTerm, setSearchTerm] = React.useState("");
   const [isUploading, setIsUploading] = React.useState(false);
-  const [isBulkUploading, setIsBulkUploading] = React.useState(false);
-  const [isUploadingBrowser, setIsUploadingBrowser] = React.useState(false);
-  const [showSettings, setShowSettings] = React.useState(false);
-  const [isSavingSettings, setIsSavingSettings] = React.useState(false);
-  const [managerConfig, setManagerConfig] = React.useState<any>(null);
-  const [editTokenDirectory, setEditTokenDirectory] = React.useState("");
   const toast = useToast();
   const accessToken = useAccessToken();
-  const bulkFileInputRef = React.useRef<HTMLInputElement>(null);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
-  const loadManagerConfig = async () => {
-    try {
-      const res = await fetch(buildApiUrl("/manager/config"), {
-        headers: {
-          Authorization: accessToken ? `Bearer ${accessToken}` : "",
-        },
-      });
-      const json = await res.json();
-      if (json && json.data) {
-        setManagerConfig(json.data);
-        setEditTokenDirectory(json.data.tokenDirectory || "");
+  // Rename modal state
+  const {
+    isOpen: isRenameOpen,
+    onOpen: onRenameOpen,
+    onClose: onRenameClose,
+  } = useDisclosure();
+  const [renameToken, setRenameToken] = React.useState<{
+    id: string;
+    title: string;
+  } | null>(null);
+  const [newTokenTitle, setNewTokenTitle] = React.useState("");
+  const [isRenaming, setIsRenaming] = React.useState(false);
+
+  // GraphQL mutation for renaming
+  const UpdateTitleMutation = graphql`
+    mutation tokensTab_UpdateTitleMutation(
+      $input: TokenImageUpdateTitleInput!
+    ) {
+      tokenImageUpdateTitle(input: $input) {
+        id
+        title
       }
-    } catch (e) {
-      // ignore
     }
-  };
+  `;
+  const [updateTitle] =
+    useMutation<tokensTab_UpdateTitleMutation>(UpdateTitleMutation);
 
-  React.useEffect(() => {
-    loadManagerConfig();
-  }, [accessToken]);
-
-  const handleSaveSettings = async () => {
-    setIsSavingSettings(true);
-    try {
-      const res = await fetch(buildApiUrl("/manager/config"), {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: accessToken ? `Bearer ${accessToken}` : "",
-        },
-        body: JSON.stringify({
-          tokenDirectory: editTokenDirectory,
-        }),
-      });
-      const json = await res.json();
-      if (json.error) throw new Error(json.error.message);
-      toast({
-        title: "Settings saved",
-        status: "success",
-        duration: 2000,
-      });
-      loadManagerConfig();
-    } catch (err: any) {
-      toast({
-        title: "Save failed",
-        description: err.message,
-        status: "error",
-        duration: 4000,
-      });
-    } finally {
-      setIsSavingSettings(false);
-    }
-  };
-
-  const handleBulkUploadTokens = async () => {
-    if (
-      !confirm(
-        "Upload all token images from configured Token Directory to server?"
-      )
-    )
-      return;
-    setIsBulkUploading(true);
-    try {
-      const res = await fetch(buildApiUrl("/manager/upload-tokens"), {
-        method: "POST",
-        headers: {
-          Authorization: accessToken ? `Bearer ${accessToken}` : "",
-        },
-      });
-      const json = await res.json();
-      if (json.error) throw new Error(json.error.message);
-      toast({
-        title: "Bulk upload complete",
-        description: `Imported ${json.data?.imported || 0} tokens`,
-        status: "success",
-        duration: 4000,
-      });
-      retry();
-    } catch (err: any) {
-      toast({
-        title: "Bulk token upload failed",
-        description: err.message,
-        status: "error",
-        duration: 5000,
-      });
-    } finally {
-      setIsBulkUploading(false);
-    }
-  };
-
-  const handleBrowserBulkUpload = async (
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
+
+    // Copy files to FormData BEFORE resetting input
+    const formData = new FormData();
+    for (let i = 0; i < files.length; i++) {
+      formData.append("files", files[i]);
+    }
 
     // Reset input so same files can be selected again
     e.target.value = "";
 
-    setIsUploadingBrowser(true);
+    setIsUploading(true);
     try {
-      const formData = new FormData();
-      for (let i = 0; i < files.length; i++) {
-        formData.append("files", files[i]);
-      }
-
       const res = await fetch(buildApiUrl("/manager/upload-tokens-browser"), {
         method: "POST",
         headers: {
@@ -313,8 +249,8 @@ export const TokensTab: React.FC = () => {
         });
       } else {
         toast({
-          title: "Browser upload complete",
-          description: `Imported ${imported} tokens`,
+          title: "Upload complete",
+          description: `Imported ${imported} token${imported !== 1 ? "s" : ""}`,
           status: "success",
           duration: 4000,
         });
@@ -322,13 +258,13 @@ export const TokensTab: React.FC = () => {
       retry();
     } catch (err: any) {
       toast({
-        title: "Browser upload failed",
+        title: "Upload failed",
         description: err.message,
         status: "error",
         duration: 5000,
       });
     } finally {
-      setIsUploadingBrowser(false);
+      setIsUploading(false);
     }
   };
 
@@ -337,7 +273,6 @@ export const TokensTab: React.FC = () => {
     title: string;
   } | null>(null);
   const [isDeleting, setIsDeleting] = React.useState(false);
-  const fileInputRef = React.useRef<HTMLInputElement>(null);
   const cancelRef = React.useRef<HTMLButtonElement>(null);
 
   const {
@@ -357,6 +292,54 @@ export const TokensTab: React.FC = () => {
   const handleDeleteClick = (token: { id: string; title: string }) => {
     setSelectedToken(token);
     onDeleteOpen();
+  };
+
+  const handleRenameClick = (token: { id: string; title: string }) => {
+    setRenameToken(token);
+    setNewTokenTitle(token.title);
+    onRenameOpen();
+  };
+
+  const handleRenameConfirm = async () => {
+    if (!renameToken || !newTokenTitle.trim()) return;
+
+    setIsRenaming(true);
+    try {
+      updateTitle({
+        variables: {
+          input: { id: renameToken.id, title: newTokenTitle.trim() },
+        },
+        onCompleted: () => {
+          toast({
+            title: "Token renamed",
+            description: `Renamed to "${newTokenTitle.trim()}"`,
+            status: "success",
+            duration: 3000,
+          });
+          retry();
+          onRenameClose();
+          setRenameToken(null);
+          setIsRenaming(false);
+        },
+        onError: (err) => {
+          toast({
+            title: "Rename failed",
+            description: err.message,
+            status: "error",
+            duration: 5000,
+          });
+          setIsRenaming(false);
+        },
+      });
+    } catch (err: any) {
+      toast({
+        title: "Rename failed",
+        description: err.message,
+        status: "error",
+        duration: 5000,
+      });
+      setIsRenaming(false);
+    }
   };
 
   const handleDeleteConfirm = async () => {
@@ -409,78 +392,6 @@ export const TokensTab: React.FC = () => {
     }
   };
 
-  const handleUploadClick = () => {
-    fileInputRef.current?.click();
-  };
-
-  const handleFileSelect = async (
-    event: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    // Validate image file
-    if (!file.type.startsWith("image/")) {
-      toast({
-        title: "Invalid file type",
-        description: "Please select an image file",
-        status: "error",
-        duration: 3000,
-      });
-      return;
-    }
-
-    setIsUploading(true);
-
-    try {
-      // Use the REST API to upload the image
-      const formData = new FormData();
-      formData.append("file", file);
-
-      const response = await fetch(buildApiUrl("/images"), {
-        method: "POST",
-        headers: {
-          Authorization: accessToken ? `Bearer ${accessToken}` : "",
-        },
-        body: file,
-      });
-
-      if (!response.ok) {
-        throw new Error(`Upload failed: ${response.statusText}`);
-      }
-
-      const result = await response.json();
-
-      if (result.error) {
-        throw new Error(result.error);
-      }
-
-      toast({
-        title: "Token uploaded",
-        description: `Successfully uploaded ${file.name}`,
-        status: "success",
-        duration: 3000,
-      });
-
-      // Refresh the list
-      retry();
-    } catch (err) {
-      console.error("Token upload failed:", err);
-      toast({
-        title: "Upload failed",
-        description: err instanceof Error ? err.message : "Unknown error",
-        status: "error",
-        duration: 5000,
-      });
-    } finally {
-      setIsUploading(false);
-      // Reset file input
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
-    }
-  };
-
   const tokens = data?.tokenImages?.edges || [];
 
   if (isLoading) {
@@ -501,99 +412,6 @@ export const TokensTab: React.FC = () => {
 
   return (
     <VStack align="stretch" spacing={6}>
-      {/* Bulk Upload & Settings Panel */}
-      <Box
-        bg="#454545"
-        border={`1px solid ${COLORS.burgundy}`}
-        borderRadius="4px"
-        p={4}
-      >
-        <HStack justify="space-between" mb={3}>
-          <VStack align="start" spacing={1}>
-            <Text fontSize="14px" color="#E8DCD2" fontWeight="bold">
-              Bulk Upload Tokens
-            </Text>
-            <Text fontSize="12px" color="#A89890">
-              Select multiple token images from your computer, or use server
-              path
-            </Text>
-          </VStack>
-          <HStack spacing={2}>
-            <input
-              type="file"
-              ref={bulkFileInputRef}
-              style={{ display: "none" }}
-              accept="image/png,image/jpeg,image/gif,image/webp"
-              multiple
-              onChange={handleBrowserBulkUpload}
-            />
-            <UploadButton
-              onClick={() => bulkFileInputRef.current?.click()}
-              isDisabled={isUploadingBrowser}
-              isLoading={isUploadingBrowser}
-              loadingText="Uploading..."
-            >
-              📁 Select Files
-            </UploadButton>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setShowSettings(!showSettings)}
-              color={COLORS.tanLight}
-              borderColor={COLORS.burgundy}
-            >
-              ⚙️ {showSettings ? "Hide" : "Show"} Server Path
-            </Button>
-          </HStack>
-        </HStack>
-
-        <Collapse in={showSettings} animateOpacity>
-          <Box
-            mt={4}
-            p={4}
-            bg={COLORS.contentBg}
-            borderRadius="4px"
-            border={`1px solid ${COLORS.border}`}
-          >
-            <VStack align="stretch" spacing={4}>
-              <FormControl>
-                <FormLabel color={COLORS.tanLight} fontSize="13px">
-                  Token Directory (server path)
-                </FormLabel>
-                <Input
-                  size="sm"
-                  bg="#3A3A3A"
-                  borderColor={COLORS.burgundy}
-                  color={COLORS.textLight}
-                  value={editTokenDirectory}
-                  onChange={(e) => setEditTokenDirectory(e.target.value)}
-                  placeholder="e.g., C:\Tokens or /home/user/tokens"
-                />
-              </FormControl>
-              <HStack justify="flex-end" spacing={2}>
-                <UploadButton
-                  size="sm"
-                  onClick={handleSaveSettings}
-                  isLoading={isSavingSettings}
-                  loadingText="Saving..."
-                >
-                  Save Settings
-                </UploadButton>
-                <UploadButton
-                  size="sm"
-                  onClick={handleBulkUploadTokens}
-                  isDisabled={isBulkUploading || !managerConfig?.tokenDirectory}
-                  isLoading={isBulkUploading}
-                  loadingText="Uploading..."
-                >
-                  Upload from Server Path
-                </UploadButton>
-              </HStack>
-            </VStack>
-          </Box>
-        </Collapse>
-      </Box>
-
       <Box>
         <PageTitle>🎯 Tokens Management</PageTitle>
         <Text color={COLORS.textLight} fontSize="14px">
@@ -601,12 +419,13 @@ export const TokensTab: React.FC = () => {
         </Text>
       </Box>
 
-      {/* Hidden file input for upload */}
+      {/* Hidden file input for upload - supports multiple */}
       <input
         type="file"
         ref={fileInputRef}
         style={{ display: "none" }}
-        accept="image/*"
+        accept="image/png,image/jpeg,image/gif,image/webp"
+        multiple
         onChange={handleFileSelect}
       />
 
@@ -627,11 +446,11 @@ export const TokensTab: React.FC = () => {
         <HStack spacing={2}>
           <UploadButton
             size="sm"
-            onClick={handleUploadClick}
+            onClick={() => fileInputRef.current?.click()}
             isLoading={isUploading}
             loadingText="Uploading..."
           >
-            📤 Upload Token
+            � Select Files
           </UploadButton>
         </HStack>
       </ActionBar>
@@ -665,6 +484,20 @@ export const TokensTab: React.FC = () => {
                 </TokenTitle>
                 <TokenMeta>Token</TokenMeta>
                 <HStack spacing={2} mt={3}>
+                  <Button
+                    size="xs"
+                    variant="outline"
+                    colorScheme="blue"
+                    fontSize="11px"
+                    onClick={() =>
+                      handleRenameClick({
+                        id: edge.node.id,
+                        title: edge.node.title,
+                      })
+                    }
+                  >
+                    Rename
+                  </Button>
                   <Button
                     size="xs"
                     variant="outline"
@@ -717,6 +550,47 @@ export const TokensTab: React.FC = () => {
           </AlertDialogContent>
         </AlertDialogOverlay>
       </AlertDialog>
+
+      {/* Rename Modal */}
+      <Modal isOpen={isRenameOpen} onClose={onRenameClose}>
+        <ModalOverlay />
+        <ModalContent bg="#454545" borderColor={COLORS.burgundy}>
+          <ModalHeader color={COLORS.tanLight}>Rename Token</ModalHeader>
+          <ModalCloseButton color={COLORS.textLight} />
+          <ModalBody>
+            <FormControl>
+              <FormLabel color={COLORS.textLight}>New Name</FormLabel>
+              <Input
+                value={newTokenTitle}
+                onChange={(e) => setNewTokenTitle(e.target.value)}
+                bg="#3A3A3A"
+                borderColor={COLORS.burgundy}
+                color={COLORS.textLight}
+                placeholder="Enter new token name"
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && newTokenTitle.trim()) {
+                    handleRenameConfirm();
+                  }
+                }}
+              />
+            </FormControl>
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="ghost" onClick={onRenameClose} mr={3}>
+              Cancel
+            </Button>
+            <Button
+              colorScheme="blue"
+              onClick={handleRenameConfirm}
+              isLoading={isRenaming}
+              isDisabled={!newTokenTitle.trim()}
+            >
+              Rename
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     </VStack>
   );
 };

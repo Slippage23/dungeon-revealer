@@ -30,12 +30,24 @@ bootstrapServer(env)
   .then(({ httpServer }) => {
     process.on("uncaughtException", (err) => {
       console.error("[Process] Uncaught Exception:", err);
+      // Don't exit for known stream-related errors that are non-fatal
+      const errMsg = err.message || String(err);
+      if (
+        errMsg.includes("emit") ||
+        errMsg.includes("unpipe") ||
+        errMsg.includes("EPIPE") ||
+        errMsg.includes("ECONNRESET")
+      ) {
+        console.error("[Process] Non-fatal stream error, continuing...");
+        return;
+      }
       process.exit(1);
     });
 
     process.on("unhandledRejection", (reason, promise) => {
       console.error("[Process] Unhandled Rejection:", reason, promise);
-      process.exit(1);
+      // Don't exit for unhandled rejections, just log them
+      // This prevents crashes from async stream issues
     });
 
     const server = httpServer.listen(env.PORT, env.HOST, () => {

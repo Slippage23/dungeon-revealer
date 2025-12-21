@@ -106,12 +106,12 @@ type Note implements Node {
   title: String!
   content: String!
   contentPreview: String!
-  createdAt: Int!
+  createdAt: String!
   viewerCanEdit: Boolean!
   viewerCanShare: Boolean!
   access: String!
   isEntryPoint: Boolean!
-  updatedAt: Int!
+  updatedAt: String!
 }
 
 interface Node {
@@ -186,10 +186,9 @@ type Query {
   map(id: ID!): Map
 
   """
-  Get all tokens on a map by id.
+  Get all tokens on a map by id (excludes reference tokens).
   """
   mapTokens(mapId: ID!): [MapToken!]!
-
   noteTemplates(mapId: String!): [NoteTemplate!]!
   noteTemplate(id: String!): NoteTemplate
   noteCategoryTree(mapId: String!): [NoteCategoryNode!]!
@@ -316,8 +315,8 @@ type TokenData {
   initiativeModifier: Int!
   conditions: [TokenCondition!]!
   notes: String
-  createdAt: Int!
-  updatedAt: Int!
+  createdAt: String!
+  updatedAt: String!
 }
 
 """
@@ -450,7 +449,7 @@ type MapToken {
   """
   Extended data for this token (HP, conditions, etc.)
   """
-  tokenData: TokenData!
+  tokenData: TokenData
 }
 
 """
@@ -463,7 +462,7 @@ type NoteTemplate {
   description: String
   schema: String!
   isDefault: Boolean!
-  createdAt: Int!
+  createdAt: String!
 }
 
 """
@@ -487,7 +486,7 @@ type NoteCategory {
   name: String!
   parentId: String
   displayOrder: Int
-  createdAt: Int!
+  createdAt: String!
 }
 
 """
@@ -498,7 +497,7 @@ type NoteBacklink {
   fromNoteId: String!
   toNoteId: String!
   linkText: String
-  createdAt: Int!
+  createdAt: String!
 }
 
 type Mutation {
@@ -518,6 +517,7 @@ type Mutation {
     input: RequestTokenImageUploadInput!
   ): RequestImageTokenUploadResult!
   tokenImageCreate(input: TokenImageCreateInput!): TokenImageCreateResult!
+  tokenImageUpdateTitle(input: TokenImageUpdateTitleInput!): TokenImage
 
   """
   Create or update token data
@@ -756,6 +756,11 @@ input TokenImageCreateInput {
   The SHA256 of the file the image got cut out from in hexadecimal form.
   """
   sourceSha256: String
+}
+
+input TokenImageUpdateTitleInput {
+  id: ID!
+  title: String!
 }
 
 """

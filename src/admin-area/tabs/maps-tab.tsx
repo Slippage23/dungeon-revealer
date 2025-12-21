@@ -336,16 +336,17 @@ export const MapsTab: React.FC = () => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
+    // Copy files to FormData BEFORE resetting input
+    const formData = new FormData();
+    for (let i = 0; i < files.length; i++) {
+      formData.append("files", files[i]);
+    }
+
     // Reset input so same files can be selected again
     e.target.value = "";
 
     setIsUploadingBrowser(true);
     try {
-      const formData = new FormData();
-      for (let i = 0; i < files.length; i++) {
-        formData.append("files", files[i]);
-      }
-
       const res = await fetch(buildApiUrl("/manager/upload-maps-browser"), {
         method: "POST",
         headers: {

@@ -4,6 +4,7 @@ const express = require("express");
 const fs = require("fs-extra");
 const path = require("path");
 const os = require("os");
+const crypto = require("crypto");
 
 // Helper to get a temp file path
 const getTmpFile = (extension = "") => {
@@ -20,8 +21,29 @@ const parseFileExtension = (filename) => {
   return ext ? ext.substring(1).toLowerCase() : "";
 };
 
-module.exports = ({ roleMiddleware, maps, settings, fileStorage }) => {
+// Helper to calculate SHA256 of a file
+const calculateFileSha256 = (filePath) => {
+  return new Promise((resolve, reject) => {
+    const hash = crypto.createHash("sha256");
+    const stream = fs.createReadStream(filePath);
+    stream.on("error", reject);
+    stream.on("data", (chunk) => hash.update(chunk));
+    stream.on("end", () => resolve(hash.digest("hex")));
+  });
+};
+
+module.exports = ({
+  roleMiddleware,
+  maps,
+  settings,
+  fileStorage,
+  db,
+  fileStoragePath,
+}) => {
   const router = express.Router();
+
+  // Token image storage directory
+  const tokenImageDir = path.join(fileStoragePath, "token-image");
 
   router.get("/manager/config", roleMiddleware.dm, (req, res) => {
     res.json({
@@ -196,11 +218,28 @@ module.exports = ({ roleMiddleware, maps, settings, fileStorage }) => {
       const errors = [];
       const fileProcessingPromises = [];
 
+      console.log("[Manager] upload-maps-browser called");
+      console.log("[Manager] Content-Type:", req.headers["content-type"]);
+      console.log("[Manager] req.busboy exists:", !!req.busboy);
+
       try {
         await new Promise((resolve, reject) => {
+          if (!req.busboy) {
+            console.log("[Manager] ERROR: req.busboy is not available");
+            return reject(
+              new Error("Busboy not initialized - check Content-Type header")
+            );
+          }
+
           req.pipe(req.busboy);
 
           req.busboy.on("file", (fieldname, file, info) => {
+            console.log(
+              "[Manager] File received:",
+              info.filename,
+              "field:",
+              fieldname
+            );
             const filename = info.filename;
             const fileExtension = parseFileExtension(filename);
             const title = path.parse(filename).name;
@@ -208,6 +247,9 @@ module.exports = ({ roleMiddleware, maps, settings, fileStorage }) => {
 
             const writeStream = fs.createWriteStream(tmpFile);
             file.pipe(writeStream);
+
+            // Ensure file stream is fully consumed to prevent unpipe errors
+            file.on("error", () => file.resume());
 
             // Create a Promise that resolves when file processing is complete
             const processingPromise = new Promise((resolveFile) => {
@@ -242,6 +284,10 @@ module.exports = ({ roleMiddleware, maps, settings, fileStorage }) => {
           });
 
           req.busboy.on("close", () => {
+            console.log(
+              "[Manager] Maps busboy close, promises:",
+              fileProcessingPromises.length
+            );
             resolve();
           });
 
@@ -251,7 +297,12 @@ module.exports = ({ roleMiddleware, maps, settings, fileStorage }) => {
         });
 
         // Wait for ALL file processing to complete
+        console.log(
+          "[Manager] Maps waiting for promises:",
+          fileProcessingPromises.length
+        );
         await Promise.all(fileProcessingPromises);
+        console.log("[Manager] Maps done, imported:", results.length);
 
         res.json({
           error:
@@ -275,6 +326,9 @@ module.exports = ({ roleMiddleware, maps, settings, fileStorage }) => {
       const errors = [];
       const fileProcessingPromises = [];
 
+      // Ensure token image directory exists
+      await fs.ensureDir(tokenImageDir);
+
       try {
         await new Promise((resolve, reject) => {
           req.pipe(req.busboy);
@@ -282,21 +336,60 @@ module.exports = ({ roleMiddleware, maps, settings, fileStorage }) => {
           req.busboy.on("file", (fieldname, file, info) => {
             const filename = info.filename;
             const fileExtension = parseFileExtension(filename);
+            const title = path.parse(filename).name;
             const tmpFile = getTmpFile(`.${fileExtension}`);
 
             const writeStream = fs.createWriteStream(tmpFile);
             file.pipe(writeStream);
 
+            // Ensure file stream is fully consumed to prevent unpipe errors
+            file.on("error", () => file.resume());
+
             // Create a Promise that resolves when file processing is complete
             const processingPromise = new Promise((resolveFile) => {
               writeStream.on("close", async () => {
                 try {
-                  const record = await fileStorage.store({
-                    filePath: tmpFile,
-                    fileExtension,
-                    fileName: filename,
-                  });
-                  results.push({ file: filename, imageId: record.id });
+                  // Calculate SHA256 of the file
+                  const sha256 = await calculateFileSha256(tmpFile);
+
+                  // Destination path in token-image directory
+                  const destPath = path.join(
+                    tokenImageDir,
+                    `${sha256}.${fileExtension}`
+                  );
+
+                  // Check if this token already exists (by SHA256)
+                  const existingToken = await db.get(
+                    `SELECT id FROM "tokenImages" WHERE sha256 = ?`,
+                    Buffer.from(sha256, "hex")
+                  );
+
+                  if (existingToken) {
+                    // Token already exists, skip
+                    results.push({
+                      file: filename,
+                      tokenId: existingToken.id,
+                      skipped: true,
+                    });
+                  } else {
+                    // Copy file to token-image directory
+                    await fs.copy(tmpFile, destPath);
+
+                    // Insert into tokenImages table
+                    const result = await db.run(
+                      `INSERT INTO "tokenImages" ("title", "sha256", "sourceSha256", "extension", "createdAt")
+                       VALUES (?, ?, NULL, ?, ?)`,
+                      title,
+                      Buffer.from(sha256, "hex"),
+                      fileExtension,
+                      Date.now()
+                    );
+
+                    results.push({
+                      file: filename,
+                      tokenId: result.lastID,
+                    });
+                  }
                 } catch (err) {
                   errors.push({ file: filename, error: err.message });
                 } finally {

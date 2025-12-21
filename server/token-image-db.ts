@@ -138,6 +138,26 @@ export const createTokenImage = (params: {
     RT.chain(applyDecoder(TokenId))
   );
 
+export const updateTokenImageTitle = (params: { id: number; title: string }) =>
+  pipe(
+    RT.ask<Dependencies>(),
+    RT.chainW(
+      (deps) => () => () =>
+        deps.db.run(
+          /* SQL */ `
+          UPDATE "tokenImages"
+          SET "title" = $title
+          WHERE "id" = $id
+        `,
+          {
+            $id: params.id,
+            $title: params.title,
+          }
+        )
+    ),
+    RT.map(() => params.id)
+  );
+
 export type GetPaginatedTokenImagesParameter = {
   first: number;
   sourceSha256: string | null;

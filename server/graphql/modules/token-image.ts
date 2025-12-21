@@ -293,6 +293,15 @@ const GraphQLTokenImageCreateResultUnionType =
     },
   });
 
+// Token image update title input
+const GraphQLTokenImageUpdateTitleInput = t.inputObjectType({
+  name: "TokenImageUpdateTitleInput",
+  fields: () => ({
+    id: { type: t.NonNullInput(t.ID) },
+    title: { type: t.NonNullInput(t.String) },
+  }),
+});
+
 export const mutationFields = [
   t.field({
     name: "requestTokenImageUpload",
@@ -320,6 +329,26 @@ export const mutationFields = [
         }),
         context
       ),
+  }),
+  t.field({
+    name: "tokenImageUpdateTitle",
+    type: GraphQLTokenImageType,
+    args: {
+      input: t.arg(t.NonNullInput(GraphQLTokenImageUpdateTitleInput)),
+    },
+    resolve: (_, args, context) => {
+      const decoded = decodeImageId(args.input.id);
+      if (E.isLeft(decoded)) {
+        throw decoded.left;
+      }
+      return RT.run(
+        lib.updateTokenImageTitle({
+          id: decoded.right,
+          title: args.input.title,
+        }),
+        context
+      );
+    },
   }),
 ];
 

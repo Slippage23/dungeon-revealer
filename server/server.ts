@@ -220,6 +220,8 @@ export const bootstrapServer = async (env: ReturnType<typeof getEnv>) => {
     maps,
     settings,
     fileStorage,
+    db,
+    fileStoragePath: path.join(env.DATA_DIRECTORY, "files"),
   });
   apiRouter.use(managerRouter);
   app.use(graphqlRouter);
