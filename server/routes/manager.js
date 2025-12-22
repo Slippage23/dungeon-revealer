@@ -210,16 +210,29 @@ module.exports = ({
     "/manager/parse-monsters-browser",
     roleMiddleware.dm,
     async (req, res) => {
+      console.log("[Excel Import] POST /manager/parse-monsters-browser called");
+      console.log("[Excel Import] Content-Type:", req.headers["content-type"]);
+      console.log("[Excel Import] req.busboy exists:", !!req.busboy);
+
       try {
         await new Promise((resolve, reject) => {
           if (!req.busboy) {
+            console.log("[Excel Import] ERROR: Busboy not initialized");
             return reject(new Error("Busboy not initialized"));
           }
 
+          let fileReceived = false;
           req.pipe(req.busboy);
 
           req.busboy.on("file", (fieldname, file, info) => {
+            fileReceived = true; // Mark that we received a file
             const filename = info.filename;
+            console.log(
+              "[Excel Import] File received:",
+              filename,
+              "field:",
+              fieldname
+            );
             const fileExtension = path.extname(filename).toLowerCase();
 
             if (fileExtension !== ".xlsx" && fileExtension !== ".xls") {
@@ -234,12 +247,20 @@ module.exports = ({
             file.pipe(writeStream);
 
             writeStream.on("finish", async () => {
+              console.log(
+                "[Excel Import] File write finished, parsing XLSX..."
+              );
               try {
                 const xlsx = require("xlsx");
                 const workbook = xlsx.readFile(tmpFile);
+                console.log(
+                  "[Excel Import] Workbook loaded, sheets:",
+                  workbook.SheetNames
+                );
                 const sheetName = workbook.SheetNames[0];
                 const worksheet = workbook.Sheets[sheetName];
                 const data = xlsx.utils.sheet_to_json(worksheet);
+                console.log("[Excel Import] Parsed rows:", data.length);
                 const monsters = data
                   .map((row) => {
                     const name =
@@ -247,6 +268,8 @@ module.exports = ({
                     return { name, data: row };
                   })
                   .filter((m) => m.name);
+
+                console.log("[Excel Import] Found monsters:", monsters.length);
 
                 // Clean up temp file
                 fs.unlink(tmpFile, () => {});
@@ -257,19 +280,42 @@ module.exports = ({
                 });
                 resolve();
               } catch (err) {
+                console.log("[Excel Import] Parse error:", err.message);
                 fs.unlink(tmpFile, () => {});
                 reject(err);
               }
             });
 
             writeStream.on("error", (err) => {
+              console.log("[Excel Import] Write stream error:", err.message);
               fs.unlink(tmpFile, () => {});
               reject(err);
             });
           });
 
-          req.busboy.on("error", reject);
-          req.busboy.on("close", resolve);
+          req.busboy.on("error", (err) => {
+            console.log("[Excel Import] Busboy error:", err.message);
+            reject(err);
+          });
+
+          req.busboy.on("close", () => {
+            console.log(
+              "[Excel Import] Busboy close event, fileReceived:",
+              fileReceived
+            );
+            // Only send error if no file was received at all
+            // If file was received, the writeStream.on("finish") will handle the response
+            if (!fileReceived) {
+              // No file was received
+              if (!res.headersSent) {
+                res
+                  .status(400)
+                  .json({ error: { message: "No file received" }, data: null });
+              }
+              resolve();
+            }
+            // Don't resolve here if file was received - let writeStream.on("finish") do it
+          });
         });
       } catch (err) {
         if (!res.headersSent) {

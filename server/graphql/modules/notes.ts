@@ -329,7 +329,7 @@ export const queryFields = [
         pipe(
           sequenceRT(
             decodeNotesConnectionCursor(args.after),
-            Relay.decodeFirst(50, 10)(args.first)
+            Relay.decodeFirst(500, 50)(args.first)
           ),
           RT.chainW(([cursor, first]) =>
             resolvePaginatedNotes({

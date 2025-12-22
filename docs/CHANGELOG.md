@@ -2,6 +2,54 @@
 
 All notable changes to Dungeon Revealer are documented here.
 
+## [1.20.4] - January 2025
+
+### Added
+
+- **Notes Tab Enhancements**
+
+  - Sortable columns (click Title or Created headers to sort)
+  - Pagination with 25 notes per page
+  - Edit button with modal for inline note editing
+  - Sort indicator arrows (▲/▼) on column headers
+
+- **Maps Tab Enhancements**
+
+  - A↔Z sorting toggle button for alphabetical ordering
+  - Pagination with 24 maps per page (6x4 grid)
+  - Page navigation with Previous/Next buttons
+
+- **Tokens Tab Enhancements**
+
+  - A↔Z sorting toggle button for alphabetical ordering
+  - Pagination with 24 tokens per page (6x4 grid)
+  - Page navigation with Previous/Next buttons
+
+- **Import Fixes**
+  - Fixed markdown import "0 imported, 0 errors" bug (FileList clearing issue)
+  - Fixed Excel import hanging on "Parsing..." (busboy race condition)
+  - Excel import now properly handles monster stat blocks
+
+### Changed
+
+- **Server Limits Increased**: GraphQL query limits raised from 50 to 500 items
+  - Notes, Maps, and Token queries now support up to 500 items per request
+  - Improves performance for large collections
+
+### Fixed
+
+- Navigation icons (🗺️ for Maps, 📝 for Notes) - were displaying as question marks
+- Pagination button readability - text now displays as black on cream background
+- Map title update mutation - corrected field name from `title` to `newTitle`
+
+### Technical
+
+- Added xlsx package for Excel parsing (v0.18+)
+- Improved busboy file upload handling with proper async/await
+- Updated Relay.decodeFirst from (50, 10) to (500, 50) in all GraphQL modules
+
+---
+
 ## [1.18.0] - January 2025
 
 ### Added

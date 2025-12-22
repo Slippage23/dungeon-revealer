@@ -180,7 +180,7 @@ const tabs: Array<{
   {
     id: "maps",
     label: "List Maps",
-    icon: "�",
+    icon: "🗺️",
     section: "maps",
     buttonColor: "tan",
   },
@@ -194,7 +194,7 @@ const tabs: Array<{
   {
     id: "notes",
     label: "Import Monster Notes",
-    icon: "�",
+    icon: "📝",
     section: "note-import",
     buttonColor: "tan",
   },

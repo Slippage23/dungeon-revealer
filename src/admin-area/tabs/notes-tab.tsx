@@ -39,6 +39,7 @@ import { useQuery, useMutation } from "relay-hooks";
 import { notesTab_NotesQuery } from "./__generated__/notesTab_NotesQuery.graphql";
 import { notesTab_NoteDeleteMutation } from "./__generated__/notesTab_NoteDeleteMutation.graphql";
 import { notesTab_NoteCreateMutation } from "./__generated__/notesTab_NoteCreateMutation.graphql";
+import { notesTab_NoteUpdateContentMutation } from "./__generated__/notesTab_NoteUpdateContentMutation.graphql";
 import { useAccessToken } from "../../hooks/use-access-token";
 import { buildApiUrl } from "../../public-url";
 
@@ -178,6 +179,22 @@ const noteCreateMutation = graphql`
   }
 `;
 
+const noteUpdateContentMutation = graphql`
+  mutation notesTab_NoteUpdateContentMutation($input: NoteUpdateContentInput!) {
+    noteUpdateContent(input: $input) {
+      note {
+        id
+        title
+        content
+      }
+    }
+  }
+`;
+
+// Sort configuration types
+type SortField = "title" | "createdAt";
+type SortDirection = "asc" | "desc";
+
 type MonsterData = {
   name: string;
   data: Record<string, unknown>;
@@ -193,11 +210,29 @@ export const NotesTab: React.FC = () => {
     content?: string;
   } | null>(null);
   const [isDeleting, setIsDeleting] = React.useState(false);
+  const [isSaving, setIsSaving] = React.useState(false);
   const mdFileInputRef = React.useRef<HTMLInputElement>(null);
   const excelFileInputRef = React.useRef<HTMLInputElement>(null);
   const cancelRef = React.useRef<HTMLButtonElement>(null);
   const toast = useToast();
   const accessToken = useAccessToken();
+
+  // Sorting state
+  const [sortField, setSortField] = React.useState<SortField>("title");
+  const [sortDirection, setSortDirection] =
+    React.useState<SortDirection>("asc");
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = React.useState(1);
+  const itemsPerPage = 25;
+
+  // Edit state
+  const [editContent, setEditContent] = React.useState("");
+  const {
+    isOpen: isEditOpen,
+    onOpen: onEditOpen,
+    onClose: onEditClose,
+  } = useDisclosure();
 
   // XLSX Monster Import State
   const [monsters, setMonsters] = React.useState<MonsterData[]>([]);
@@ -221,10 +256,11 @@ export const NotesTab: React.FC = () => {
     onClose: onViewClose,
   } = useDisclosure();
 
+  // Fetch notes (server now allows up to 500)
   const { data, isLoading, error, retry } = useQuery<notesTab_NotesQuery>(
     notesQuery,
     {
-      first: 50,
+      first: 500,
     }
   );
 
@@ -232,12 +268,81 @@ export const NotesTab: React.FC = () => {
     useMutation<notesTab_NoteDeleteMutation>(noteDeleteMutation);
   const [noteCreate] =
     useMutation<notesTab_NoteCreateMutation>(noteCreateMutation);
+  const [noteUpdateContent] = useMutation<notesTab_NoteUpdateContentMutation>(
+    noteUpdateContentMutation
+  );
+
+  // Handle column sorting
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      // Toggle direction if same field
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    } else {
+      // New field, default to ascending
+      setSortField(field);
+      setSortDirection("asc");
+    }
+    // Reset to first page when sorting changes
+    setCurrentPage(1);
+  };
+
+  // Get sort indicator for column header
+  const getSortIndicator = (field: SortField) => {
+    if (sortField !== field) return " ↕";
+    return sortDirection === "asc" ? " ▲" : " ▼";
+  };
+
+  // Handle edit click
+  const handleEditClick = (note: {
+    id: string;
+    title: string;
+    content?: string;
+  }) => {
+    setSelectedNote(note);
+    setEditContent(note.content || "");
+    onEditOpen();
+  };
+
+  // Handle save edit
+  const handleSaveEdit = async () => {
+    if (!selectedNote) return;
+    setIsSaving(true);
+    try {
+      await noteUpdateContent({
+        variables: {
+          input: {
+            id: selectedNote.id,
+            content: editContent,
+          },
+        },
+      });
+      toast({
+        title: "Note updated",
+        description: `Updated "${selectedNote.title}"`,
+        status: "success",
+        duration: 3000,
+      });
+      retry();
+      onEditClose();
+    } catch (err: any) {
+      toast({
+        title: "Update failed",
+        description: err.message,
+        status: "error",
+        duration: 5000,
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   // Parse monsters from browser-uploaded Excel file
   const handleExcelFileSelect = async (
     e: React.ChangeEvent<HTMLInputElement>
   ) => {
+    console.log("[Excel Import] handleExcelFileSelect triggered");
     const file = e.target.files?.[0];
+    console.log("[Excel Import] File:", file?.name, file?.size);
     if (!file) return;
 
     // Reset input so same file can be selected again
@@ -248,6 +353,10 @@ export const NotesTab: React.FC = () => {
       const formData = new FormData();
       formData.append("file", file);
 
+      console.log(
+        "[Excel Import] Sending to:",
+        buildApiUrl("/manager/parse-monsters-browser")
+      );
       const response = await fetch(
         buildApiUrl("/manager/parse-monsters-browser"),
         {
@@ -258,7 +367,9 @@ export const NotesTab: React.FC = () => {
           body: formData,
         }
       );
+      console.log("[Excel Import] Response status:", response.status);
       const json = await response.json();
+      console.log("[Excel Import] Response JSON:", json);
       if (json.error) {
         throw new Error(json.error.message);
       }
@@ -419,8 +530,18 @@ export const NotesTab: React.FC = () => {
   const handleMdFileSelect = async (
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
-    const files = event.target.files;
-    if (!files || files.length === 0) return;
+    console.log("[Notes Import] handleMdFileSelect triggered");
+    const fileList = event.target.files;
+    console.log("[Notes Import] Files:", fileList?.length, fileList);
+    if (!fileList || fileList.length === 0) return;
+
+    // Copy files to array before resetting input (resetting clears the FileList!)
+    const files = Array.from(fileList);
+    console.log(
+      "[Notes Import] Files array:",
+      files.length,
+      files.map((f) => f.name)
+    );
 
     // Reset input so same files can be selected again
     event.target.value = "";
@@ -433,6 +554,7 @@ export const NotesTab: React.FC = () => {
     try {
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
+        console.log("[Notes Import] Processing file:", file.name, file.size);
 
         // Validate file type
         const validExtensions = [".md", ".zip"];
@@ -440,6 +562,7 @@ export const NotesTab: React.FC = () => {
           file.name.toLowerCase().endsWith(ext)
         );
         if (!isValid) {
+          console.log("[Notes Import] Invalid extension for:", file.name);
           totalFailed++;
           continue;
         }
@@ -448,6 +571,7 @@ export const NotesTab: React.FC = () => {
         const formData = new FormData();
         formData.append("file", file);
 
+        console.log("[Notes Import] Sending to:", buildApiUrl("/notes/import"));
         const response = await fetch(buildApiUrl("/notes/import"), {
           method: "POST",
           headers: {
@@ -455,13 +579,16 @@ export const NotesTab: React.FC = () => {
           },
           body: formData,
         });
+        console.log("[Notes Import] Response status:", response.status);
 
         if (!response.ok) {
+          console.log("[Notes Import] Response not OK");
           totalFailed++;
           continue;
         }
 
         const text = await response.text();
+        console.log("[Notes Import] Response text:", text);
         // Parse the last line of the response (streaming response)
         const lines = text.trim().split("\n");
         const lastLine = lines[lines.length - 1];
@@ -499,9 +626,34 @@ export const NotesTab: React.FC = () => {
   };
 
   const notes = data?.notes?.edges?.map((edge) => edge.node) || [];
+
+  // Filter notes by search term
   const filteredNotes = notes.filter((note) =>
     note.title.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  // Sort filtered notes
+  const sortedNotes = [...filteredNotes].sort((a, b) => {
+    let comparison = 0;
+    if (sortField === "title") {
+      comparison = a.title.localeCompare(b.title);
+    } else if (sortField === "createdAt") {
+      comparison =
+        new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+    }
+    return sortDirection === "asc" ? comparison : -comparison;
+  });
+
+  // Pagination calculations
+  const totalPages = Math.ceil(sortedNotes.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedNotes = sortedNotes.slice(startIndex, endIndex);
+
+  // Reset to page 1 when search changes
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
 
   if (isLoading) {
     return (
@@ -580,7 +732,7 @@ export const NotesTab: React.FC = () => {
       </ActionBar>
 
       {/* Notes Table */}
-      {filteredNotes.length === 0 ? (
+      {sortedNotes.length === 0 ? (
         <Center p={12}>
           <VStack spacing={4}>
             <Text fontSize="18px" color={COLORS.textLight}>
@@ -593,59 +745,157 @@ export const NotesTab: React.FC = () => {
           </VStack>
         </Center>
       ) : (
-        <StyledTable>
-          <Table variant="simple" size="sm">
-            <Thead>
-              <Tr>
-                <Th>Title</Th>
-                <Th>Created</Th>
-                <Th>Actions</Th>
-              </Tr>
-            </Thead>
-            <Tbody>
-              {filteredNotes.map((note) => (
-                <Tr key={note.id}>
-                  <Td maxW="300px" isTruncated>
-                    {note.title}
-                  </Td>
-                  <Td>{new Date(note.createdAt).toLocaleDateString()}</Td>
-                  <Td>
-                    <HStack spacing={2}>
-                      <Button
-                        size="xs"
-                        variant="outline"
-                        fontSize="11px"
-                        onClick={() =>
-                          handleViewClick({
-                            id: note.id,
-                            title: note.title,
-                            content: note.content,
-                          })
-                        }
-                      >
-                        View
-                      </Button>
-                      <Button
-                        size="xs"
-                        variant="outline"
-                        colorScheme="red"
-                        fontSize="11px"
-                        onClick={() =>
-                          handleDeleteClick({
-                            id: note.id,
-                            title: note.title,
-                          })
-                        }
-                      >
-                        Delete
-                      </Button>
-                    </HStack>
-                  </Td>
+        <>
+          {/* Pagination Info & Controls - Top */}
+          <HStack justifyContent="space-between" px={2}>
+            <Text fontSize="13px" color={COLORS.textLight}>
+              Showing {startIndex + 1}-{Math.min(endIndex, sortedNotes.length)}{" "}
+              of {sortedNotes.length} notes
+            </Text>
+            <HStack spacing={2}>
+              <Button
+                size="xs"
+                variant="solid"
+                bg={COLORS.cardBg}
+                color={COLORS.text}
+                borderColor={COLORS.border}
+                border="1px solid"
+                _hover={{ bg: COLORS.cardBgEnd }}
+                onClick={() => setCurrentPage(1)}
+                isDisabled={currentPage === 1}
+              >
+                ⏮ First
+              </Button>
+              <Button
+                size="xs"
+                variant="solid"
+                bg={COLORS.cardBg}
+                color={COLORS.text}
+                borderColor={COLORS.border}
+                border="1px solid"
+                _hover={{ bg: COLORS.cardBgEnd }}
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                isDisabled={currentPage === 1}
+              >
+                ◀ Prev
+              </Button>
+              <Text fontSize="13px" color={COLORS.textLight} px={2}>
+                Page {currentPage} of {totalPages}
+              </Text>
+              <Button
+                size="xs"
+                variant="solid"
+                bg={COLORS.cardBg}
+                color={COLORS.text}
+                borderColor={COLORS.border}
+                border="1px solid"
+                _hover={{ bg: COLORS.cardBgEnd }}
+                onClick={() =>
+                  setCurrentPage((p) => Math.min(totalPages, p + 1))
+                }
+                isDisabled={currentPage === totalPages}
+              >
+                Next ▶
+              </Button>
+              <Button
+                size="xs"
+                variant="solid"
+                bg={COLORS.cardBg}
+                color={COLORS.text}
+                borderColor={COLORS.border}
+                border="1px solid"
+                _hover={{ bg: COLORS.cardBgEnd }}
+                onClick={() => setCurrentPage(totalPages)}
+                isDisabled={currentPage === totalPages}
+              >
+                Last ⏭
+              </Button>
+            </HStack>
+          </HStack>
+
+          <StyledTable>
+            <Table variant="simple" size="sm">
+              <Thead>
+                <Tr>
+                  <Th
+                    cursor="pointer"
+                    onClick={() => handleSort("title")}
+                    _hover={{ bg: "rgba(0,0,0,0.1)" }}
+                    userSelect="none"
+                  >
+                    Title{getSortIndicator("title")}
+                  </Th>
+                  <Th
+                    cursor="pointer"
+                    onClick={() => handleSort("createdAt")}
+                    _hover={{ bg: "rgba(0,0,0,0.1)" }}
+                    userSelect="none"
+                  >
+                    Created{getSortIndicator("createdAt")}
+                  </Th>
+                  <Th>Actions</Th>
                 </Tr>
-              ))}
-            </Tbody>
-          </Table>
-        </StyledTable>
+              </Thead>
+              <Tbody>
+                {paginatedNotes.map((note) => (
+                  <Tr key={note.id}>
+                    <Td maxW="300px" isTruncated>
+                      {note.title}
+                    </Td>
+                    <Td>{new Date(note.createdAt).toLocaleDateString()}</Td>
+                    <Td>
+                      <HStack spacing={2}>
+                        <Button
+                          size="xs"
+                          variant="outline"
+                          fontSize="11px"
+                          onClick={() =>
+                            handleViewClick({
+                              id: note.id,
+                              title: note.title,
+                              content: note.content,
+                            })
+                          }
+                        >
+                          View
+                        </Button>
+                        <Button
+                          size="xs"
+                          variant="outline"
+                          colorScheme="blue"
+                          fontSize="11px"
+                          onClick={() =>
+                            handleEditClick({
+                              id: note.id,
+                              title: note.title,
+                              content: note.content,
+                            })
+                          }
+                        >
+                          Edit
+                        </Button>
+                        <Button
+                          size="xs"
+                          variant="outline"
+                          colorScheme="red"
+                          fontSize="11px"
+                          onClick={() =>
+                            handleDeleteClick({
+                              id: note.id,
+                              title: note.title,
+                            })
+                          }
+                        >
+                          Delete
+                        </Button>
+                      </HStack>
+                    </Td>
+                  </Tr>
+                ))}
+              </Tbody>
+            </Table>
+          </StyledTable>
+        </>
       )}
 
       {/* Delete Confirmation Dialog */}
@@ -705,6 +955,52 @@ export const NotesTab: React.FC = () => {
           </ModalBody>
           <ModalFooter>
             <Button onClick={onViewClose}>Close</Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* Edit Note Modal */}
+      <Modal isOpen={isEditOpen} onClose={onEditClose} size="xl">
+        <ModalOverlay />
+        <ModalContent bg="#454545" borderColor={COLORS.burgundy} maxH="90vh">
+          <ModalHeader color={COLORS.tanLight}>
+            Edit: {selectedNote?.title}
+          </ModalHeader>
+          <ModalCloseButton color={COLORS.textLight} />
+          <ModalBody>
+            <textarea
+              value={editContent}
+              onChange={(e) => setEditContent(e.target.value)}
+              style={{
+                width: "100%",
+                minHeight: "400px",
+                padding: "12px",
+                fontFamily: "monospace",
+                fontSize: "13px",
+                backgroundColor: COLORS.contentBg,
+                color: COLORS.text,
+                border: `2px solid ${COLORS.border}`,
+                borderRadius: "4px",
+                resize: "vertical",
+              }}
+            />
+          </ModalBody>
+          <ModalFooter>
+            <Button
+              variant="ghost"
+              mr={3}
+              onClick={onEditClose}
+              isDisabled={isSaving}
+            >
+              Cancel
+            </Button>
+            <UploadButton
+              onClick={handleSaveEdit}
+              isLoading={isSaving}
+              loadingText="Saving..."
+            >
+              💾 Save Changes
+            </UploadButton>
           </ModalFooter>
         </ModalContent>
       </Modal>

@@ -199,6 +199,15 @@ export const MapsTab: React.FC = () => {
   const accessToken = useAccessToken();
   const bulkFileInputRef = React.useRef<HTMLInputElement>(null);
 
+  // Sorting state
+  const [sortDirection, setSortDirection] = React.useState<"asc" | "desc">(
+    "asc"
+  );
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = React.useState(1);
+  const itemsPerPage = 24;
+
   const handleBrowserBulkUpload = async (
     e: React.ChangeEvent<HTMLInputElement>
   ) => {
@@ -290,7 +299,7 @@ export const MapsTab: React.FC = () => {
   const { data, isLoading, error, retry } = useQuery<mapsTab_MapsQuery>(
     mapsQuery,
     {
-      first: 12,
+      first: 500,
       titleNeedle: searchTerm || undefined,
     }
   );
@@ -388,7 +397,7 @@ export const MapsTab: React.FC = () => {
     try {
       await mapUpdateTitle({
         variables: {
-          input: { mapId: selectedMap.id, title: editTitle.trim() },
+          input: { mapId: selectedMap.id, newTitle: editTitle.trim() },
         },
       });
       toast({
@@ -414,6 +423,29 @@ export const MapsTab: React.FC = () => {
 
   const maps = data?.maps?.edges || [];
 
+  // Sort maps
+  const sortedMaps = React.useMemo(() => {
+    const filtered = maps.filter((edge) =>
+      edge.node.title.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+    return [...filtered].sort((a, b) => {
+      const comparison = a.node.title.localeCompare(b.node.title);
+      return sortDirection === "asc" ? comparison : -comparison;
+    });
+  }, [maps, searchTerm, sortDirection]);
+
+  // Pagination
+  const totalPages = Math.ceil(sortedMaps.length / itemsPerPage);
+  const paginatedMaps = sortedMaps.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  // Reset to page 1 when search changes
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
+
   if (isLoading) {
     return (
       <Center height="300px">
@@ -430,10 +462,6 @@ export const MapsTab: React.FC = () => {
     );
   }
 
-  const filteredMaps = maps.filter((edge) =>
-    edge.node.title.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
   return (
     <VStack align="stretch" spacing={6}>
       <Box>
@@ -445,17 +473,31 @@ export const MapsTab: React.FC = () => {
 
       {/* Action Bar */}
       <ActionBar justifyContent="space-between" width="100%">
-        <Input
-          placeholder="Search maps by title..."
-          bg={COLORS.contentBg}
-          borderColor={COLORS.burgundy}
-          color={COLORS.textLight}
-          size="sm"
-          width="300px"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          _placeholder={{ color: COLORS.textLight, opacity: 0.5 }}
-        />
+        <HStack spacing={4}>
+          <Input
+            placeholder="Search maps by title..."
+            bg={COLORS.contentBg}
+            borderColor={COLORS.burgundy}
+            color={COLORS.textLight}
+            size="sm"
+            width="300px"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            _placeholder={{ color: COLORS.textLight, opacity: 0.5 }}
+          />
+          <Button
+            size="sm"
+            variant="outline"
+            borderColor={COLORS.border}
+            color={COLORS.text}
+            onClick={() =>
+              setSortDirection(sortDirection === "asc" ? "desc" : "asc")
+            }
+            _hover={{ bg: COLORS.cardBgEnd }}
+          >
+            Sort: {sortDirection === "asc" ? "A→Z ▲" : "Z→A ▼"}
+          </Button>
+        </HStack>
 
         <HStack spacing={2}>
           <input
@@ -472,13 +514,13 @@ export const MapsTab: React.FC = () => {
             isLoading={isUploadingBrowser}
             loadingText="Uploading..."
           >
-            � Upload Maps
+            📤 Upload Maps
           </UploadButton>
         </HStack>
       </ActionBar>
 
       {/* Maps Grid */}
-      {filteredMaps.length === 0 ? (
+      {paginatedMaps.length === 0 ? (
         <Center p={12}>
           <VStack spacing={4}>
             <Text fontSize="18px" color={COLORS.textLight}>
@@ -490,69 +532,134 @@ export const MapsTab: React.FC = () => {
           </VStack>
         </Center>
       ) : (
-        <SimpleGrid columns={{ base: 1, md: 2, lg: 3, xl: 4 }} spacing={4}>
-          {filteredMaps.map((edge) => (
-            <MapCard key={edge.node.id}>
-              <MapImage>
-                {edge.node.mapImageUrl ? (
-                  <img src={edge.node.mapImageUrl} alt={edge.node.title} />
-                ) : (
-                  <Text>No image</Text>
-                )}
-              </MapImage>
-              <MapInfo>
-                <MapTitle>{edge.node.title}</MapTitle>
-                <MapMeta>Grid: {edge.node.grid?.columnWidth || "1.0"}x</MapMeta>
-                <HStack spacing={2} mt={3}>
-                  <Button
-                    size="xs"
-                    variant="outline"
-                    colorScheme="red"
-                    fontSize="11px"
-                    onClick={() =>
-                      handleDeleteClick({
-                        id: edge.node.id,
-                        title: edge.node.title,
-                      })
-                    }
-                  >
-                    Delete
-                  </Button>
-                  <Button
-                    size="xs"
-                    variant="outline"
-                    fontSize="11px"
-                    color="#3a2f26"
-                    borderColor="#3a2f26"
-                    _hover={{ bg: "#e8d4b0" }}
-                    onClick={() =>
-                      handleEditClick({
-                        id: edge.node.id,
-                        title: edge.node.title,
-                      })
-                    }
-                  >
-                    Edit
-                  </Button>
-                  <Button
-                    size="xs"
-                    variant="outline"
-                    colorScheme="orange"
-                    fontSize="11px"
-                    onClick={() =>
-                      handleResetFogClick({
-                        id: edge.node.id,
-                        title: edge.node.title,
-                      })
-                    }
-                  >
-                    Reset Fog
-                  </Button>
-                </HStack>
-              </MapInfo>
-            </MapCard>
-          ))}
-        </SimpleGrid>
+        <>
+          <SimpleGrid columns={{ base: 1, md: 2, lg: 3, xl: 4 }} spacing={4}>
+            {paginatedMaps.map((edge) => (
+              <MapCard key={edge.node.id}>
+                <MapImage>
+                  {edge.node.mapImageUrl ? (
+                    <img src={edge.node.mapImageUrl} alt={edge.node.title} />
+                  ) : (
+                    <Text>No image</Text>
+                  )}
+                </MapImage>
+                <MapInfo>
+                  <MapTitle>{edge.node.title}</MapTitle>
+                  <MapMeta>
+                    Grid: {edge.node.grid?.columnWidth || "1.0"}x
+                  </MapMeta>
+                  <HStack spacing={2} mt={3}>
+                    <Button
+                      size="xs"
+                      variant="outline"
+                      colorScheme="red"
+                      fontSize="11px"
+                      onClick={() =>
+                        handleDeleteClick({
+                          id: edge.node.id,
+                          title: edge.node.title,
+                        })
+                      }
+                    >
+                      Delete
+                    </Button>
+                    <Button
+                      size="xs"
+                      variant="outline"
+                      fontSize="11px"
+                      color="#3a2f26"
+                      borderColor="#3a2f26"
+                      _hover={{ bg: "#e8d4b0" }}
+                      onClick={() =>
+                        handleEditClick({
+                          id: edge.node.id,
+                          title: edge.node.title,
+                        })
+                      }
+                    >
+                      Edit
+                    </Button>
+                    <Button
+                      size="xs"
+                      variant="outline"
+                      colorScheme="orange"
+                      fontSize="11px"
+                      onClick={() =>
+                        handleResetFogClick({
+                          id: edge.node.id,
+                          title: edge.node.title,
+                        })
+                      }
+                    >
+                      Reset Fog
+                    </Button>
+                  </HStack>
+                </MapInfo>
+              </MapCard>
+            ))}
+          </SimpleGrid>
+
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <HStack justifyContent="center" spacing={4} mt={4}>
+              <Button
+                size="sm"
+                variant="solid"
+                bg={COLORS.cardBg}
+                color={COLORS.text}
+                borderColor={COLORS.border}
+                border="1px solid"
+                _hover={{ bg: COLORS.cardBgEnd }}
+                onClick={() => setCurrentPage(1)}
+                isDisabled={currentPage === 1}
+              >
+                First
+              </Button>
+              <Button
+                size="sm"
+                variant="solid"
+                bg={COLORS.cardBg}
+                color={COLORS.text}
+                borderColor={COLORS.border}
+                border="1px solid"
+                _hover={{ bg: COLORS.cardBgEnd }}
+                onClick={() => setCurrentPage(currentPage - 1)}
+                isDisabled={currentPage === 1}
+              >
+                Prev
+              </Button>
+              <Text color={COLORS.text} fontSize="14px">
+                Page {currentPage} of {totalPages} ({sortedMaps.length} maps)
+              </Text>
+              <Button
+                size="sm"
+                variant="solid"
+                bg={COLORS.cardBg}
+                color={COLORS.text}
+                borderColor={COLORS.border}
+                border="1px solid"
+                _hover={{ bg: COLORS.cardBgEnd }}
+                onClick={() => setCurrentPage(currentPage + 1)}
+                isDisabled={currentPage === totalPages}
+              >
+                Next
+              </Button>
+              <Button
+                size="sm"
+                variant="solid"
+                bg={COLORS.cardBg}
+                color={COLORS.text}
+                borderColor={COLORS.border}
+                border="1px solid"
+                _hover={{ bg: COLORS.cardBgEnd }}
+                onClick={() => setCurrentPage(totalPages)}
+                isDisabled={currentPage === totalPages}
+              >
+                Last
+              </Button>
+            </HStack>
+          )}
+        </>
       )}
 
       {/* Delete Confirmation Dialog */}

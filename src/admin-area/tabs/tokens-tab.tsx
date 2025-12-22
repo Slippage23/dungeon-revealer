@@ -185,6 +185,15 @@ export const TokensTab: React.FC = () => {
   const accessToken = useAccessToken();
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
+  // Sorting state
+  const [sortDirection, setSortDirection] = React.useState<"asc" | "desc">(
+    "asc"
+  );
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = React.useState(1);
+  const itemsPerPage = 24;
+
   // Rename modal state
   const {
     isOpen: isRenameOpen,
@@ -284,7 +293,7 @@ export const TokensTab: React.FC = () => {
   const { data, isLoading, error, retry } = useQuery<tokensTab_TokensQuery>(
     tokensQuery,
     {
-      first: 12,
+      first: 500,
       titleFilter: searchTerm || undefined,
     }
   );
@@ -394,6 +403,26 @@ export const TokensTab: React.FC = () => {
 
   const tokens = data?.tokenImages?.edges || [];
 
+  // Sort tokens
+  const sortedTokens = React.useMemo(() => {
+    return [...tokens].sort((a, b) => {
+      const comparison = a.node.title.localeCompare(b.node.title);
+      return sortDirection === "asc" ? comparison : -comparison;
+    });
+  }, [tokens, sortDirection]);
+
+  // Pagination
+  const totalPages = Math.ceil(sortedTokens.length / itemsPerPage);
+  const paginatedTokens = sortedTokens.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  // Reset to page 1 when search changes
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
+
   if (isLoading) {
     return (
       <Center height="300px">
@@ -431,17 +460,31 @@ export const TokensTab: React.FC = () => {
 
       {/* Action Bar */}
       <ActionBar justifyContent="space-between" width="100%">
-        <Input
-          placeholder="Search tokens by name..."
-          bg={COLORS.contentBg}
-          borderColor={COLORS.burgundy}
-          color={COLORS.textLight}
-          size="sm"
-          width="300px"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          _placeholder={{ color: COLORS.textLight, opacity: 0.5 }}
-        />
+        <HStack spacing={4}>
+          <Input
+            placeholder="Search tokens by name..."
+            bg={COLORS.contentBg}
+            borderColor={COLORS.burgundy}
+            color={COLORS.textLight}
+            size="sm"
+            width="300px"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            _placeholder={{ color: COLORS.textLight, opacity: 0.5 }}
+          />
+          <Button
+            size="sm"
+            variant="outline"
+            borderColor={COLORS.border}
+            color={COLORS.text}
+            onClick={() =>
+              setSortDirection(sortDirection === "asc" ? "desc" : "asc")
+            }
+            _hover={{ bg: COLORS.cardBgEnd }}
+          >
+            Sort: {sortDirection === "asc" ? "A→Z ▲" : "Z→A ▼"}
+          </Button>
+        </HStack>
 
         <HStack spacing={2}>
           <UploadButton
@@ -450,13 +493,13 @@ export const TokensTab: React.FC = () => {
             isLoading={isUploading}
             loadingText="Uploading..."
           >
-            � Select Files
+            📤 Select Files
           </UploadButton>
         </HStack>
       </ActionBar>
 
       {/* Tokens Grid */}
-      {tokens.length === 0 ? (
+      {paginatedTokens.length === 0 ? (
         <Center p={12}>
           <VStack spacing={4}>
             <Text fontSize="18px" color={COLORS.textLight}>
@@ -468,55 +511,119 @@ export const TokensTab: React.FC = () => {
           </VStack>
         </Center>
       ) : (
-        <SimpleGrid columns={{ base: 2, md: 3, lg: 4, xl: 6 }} spacing={4}>
-          {tokens.map((edge) => (
-            <TokenCard key={edge.node.id}>
-              <TokenImage>
-                {edge.node.url ? (
-                  <img src={edge.node.url} alt={edge.node.title} />
-                ) : (
-                  <Text>No image</Text>
-                )}
-              </TokenImage>
-              <TokenInfo>
-                <TokenTitle title={edge.node.title}>
-                  {edge.node.title}
-                </TokenTitle>
-                <TokenMeta>Token</TokenMeta>
-                <HStack spacing={2} mt={3}>
-                  <Button
-                    size="xs"
-                    variant="outline"
-                    colorScheme="blue"
-                    fontSize="11px"
-                    onClick={() =>
-                      handleRenameClick({
-                        id: edge.node.id,
-                        title: edge.node.title,
-                      })
-                    }
-                  >
-                    Rename
-                  </Button>
-                  <Button
-                    size="xs"
-                    variant="outline"
-                    colorScheme="red"
-                    fontSize="11px"
-                    onClick={() =>
-                      handleDeleteClick({
-                        id: edge.node.id,
-                        title: edge.node.title,
-                      })
-                    }
-                  >
-                    Delete
-                  </Button>
-                </HStack>
-              </TokenInfo>
-            </TokenCard>
-          ))}
-        </SimpleGrid>
+        <>
+          <SimpleGrid columns={{ base: 2, md: 3, lg: 4, xl: 6 }} spacing={4}>
+            {paginatedTokens.map((edge) => (
+              <TokenCard key={edge.node.id}>
+                <TokenImage>
+                  {edge.node.url ? (
+                    <img src={edge.node.url} alt={edge.node.title} />
+                  ) : (
+                    <Text>No image</Text>
+                  )}
+                </TokenImage>
+                <TokenInfo>
+                  <TokenTitle title={edge.node.title}>
+                    {edge.node.title}
+                  </TokenTitle>
+                  <TokenMeta>Token</TokenMeta>
+                  <HStack spacing={2} mt={3}>
+                    <Button
+                      size="xs"
+                      variant="outline"
+                      colorScheme="blue"
+                      fontSize="11px"
+                      onClick={() =>
+                        handleRenameClick({
+                          id: edge.node.id,
+                          title: edge.node.title,
+                        })
+                      }
+                    >
+                      Rename
+                    </Button>
+                    <Button
+                      size="xs"
+                      variant="outline"
+                      colorScheme="red"
+                      fontSize="11px"
+                      onClick={() =>
+                        handleDeleteClick({
+                          id: edge.node.id,
+                          title: edge.node.title,
+                        })
+                      }
+                    >
+                      Delete
+                    </Button>
+                  </HStack>
+                </TokenInfo>
+              </TokenCard>
+            ))}
+          </SimpleGrid>
+
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <HStack justifyContent="center" spacing={4} mt={4}>
+              <Button
+                size="sm"
+                variant="solid"
+                bg={COLORS.cardBg}
+                color={COLORS.text}
+                borderColor={COLORS.border}
+                border="1px solid"
+                _hover={{ bg: COLORS.cardBgEnd }}
+                onClick={() => setCurrentPage(1)}
+                isDisabled={currentPage === 1}
+              >
+                First
+              </Button>
+              <Button
+                size="sm"
+                variant="solid"
+                bg={COLORS.cardBg}
+                color={COLORS.text}
+                borderColor={COLORS.border}
+                border="1px solid"
+                _hover={{ bg: COLORS.cardBgEnd }}
+                onClick={() => setCurrentPage(currentPage - 1)}
+                isDisabled={currentPage === 1}
+              >
+                Prev
+              </Button>
+              <Text color={COLORS.text} fontSize="14px">
+                Page {currentPage} of {totalPages} ({sortedTokens.length}{" "}
+                tokens)
+              </Text>
+              <Button
+                size="sm"
+                variant="solid"
+                bg={COLORS.cardBg}
+                color={COLORS.text}
+                borderColor={COLORS.border}
+                border="1px solid"
+                _hover={{ bg: COLORS.cardBgEnd }}
+                onClick={() => setCurrentPage(currentPage + 1)}
+                isDisabled={currentPage === totalPages}
+              >
+                Next
+              </Button>
+              <Button
+                size="sm"
+                variant="solid"
+                bg={COLORS.cardBg}
+                color={COLORS.text}
+                borderColor={COLORS.border}
+                border="1px solid"
+                _hover={{ bg: COLORS.cardBgEnd }}
+                onClick={() => setCurrentPage(totalPages)}
+                isDisabled={currentPage === totalPages}
+              >
+                Last
+              </Button>
+            </HStack>
+          )}
+        </>
       )}
 
       {/* Delete Confirmation Dialog */}

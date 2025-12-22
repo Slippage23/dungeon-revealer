@@ -204,7 +204,7 @@ export const queryFields = [
         pipe(
           sequenceReaderTask(
             decodeTokenImagesCursor(args.after),
-            Relay.decodeFirst(50)(args.first)
+            Relay.decodeFirst(500, 50)(args.first)
           ),
           RT.chainW(([cursor, first]) =>
             pipe(

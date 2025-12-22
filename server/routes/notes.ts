@@ -71,6 +71,13 @@ export default ({ db, roleMiddleware }: Dependencies) => {
   const router = express.Router();
 
   router.post("/notes/import", roleMiddleware.dm, (request, response) => {
+    console.log("[Notes Import] POST /notes/import called");
+    console.log(
+      "[Notes Import] Content-Type:",
+      request.headers["content-type"]
+    );
+    console.log("[Notes Import] req.busboy exists:", !!request.busboy);
+
     request.setTimeout(0);
     request.pipe(request.busboy);
 
@@ -80,11 +87,18 @@ export default ({ db, roleMiddleware }: Dependencies) => {
       "file",
       (fieldname: string, file: fs.ReadStream, info: any) => {
         const filename = info.filename;
+        console.log(
+          "[Notes Import] File received:",
+          filename,
+          "field:",
+          fieldname
+        );
         hasFile = true;
         let amountOfImportedRecords = 0;
         let amountOfFailedRecords = 0;
 
         if (filename.endsWith(".md")) {
+          console.log("[Notes Import] Processing .md file");
           const chunks = [] as Uint8Array[];
           file.on("data", (chunk) => {
             chunks.push(
@@ -96,8 +110,20 @@ export default ({ db, roleMiddleware }: Dependencies) => {
 
           file.on("end", () => {
             const noteContents = Buffer.concat(chunks).toString();
+            console.log(
+              "[Notes Import] File contents length:",
+              noteContents.length
+            );
+            console.log(
+              "[Notes Import] First 200 chars:",
+              noteContents.substring(0, 200)
+            );
             importNoteWithReport(filename)(noteContents)({ db })().then(
               (result) => {
+                console.log(
+                  "[Notes Import] Import result:",
+                  JSON.stringify(result)
+                );
                 if (result.error === null) {
                   amountOfImportedRecords = amountOfImportedRecords + 1;
                 } else {

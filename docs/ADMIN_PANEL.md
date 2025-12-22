@@ -15,23 +15,32 @@ The Admin Panel provides DMs with a centralized dashboard for managing all aspec
 ### Maps Tab
 
 - View all uploaded maps with thumbnails
+- **Sorting**: A↔Z toggle button for alphabetical ordering (ascending/descending)
+- **Pagination**: 24 maps per page with Previous/Next navigation
 - Quick access to map settings
-- Upload new maps
+- Upload new maps (single or bulk)
+- Bulk upload from configured scan directories
 - Delete or archive maps
 
 ### Tokens Tab
 
 - Browse token library with visual previews
-- Upload new token images
+- **Sorting**: A↔Z toggle button for alphabetical ordering (ascending/descending)
+- **Pagination**: 24 tokens per page with Previous/Next navigation
+- Upload new token images (single or bulk)
+- Bulk upload from configured scan directories
 - Organize tokens by category
 - Delete unused tokens
 
 ### Notes Tab
 
-- View all DM notes
-- Quick edit and delete
+- View all DM notes in a table format
+- **Sortable Columns**: Click Title or Created headers to sort (▲/▼ indicators)
+- **Pagination**: 25 notes per page with Previous/Next navigation
+- **Edit Button**: Inline editing via modal dialog
 - Search and filter notes
 - Create new notes
+- Import from Markdown files or Excel spreadsheets (monster stat blocks)
 
 ## Visual Design
 
