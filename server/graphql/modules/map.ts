@@ -14,6 +14,7 @@ import { getTokenImageById } from "../../token-image-lib";
 import { randomUUID } from "crypto";
 import * as tokenDataDb from "../../token-data-db";
 import { GraphQLTokenDataType } from "./token-data";
+import * as auth from "../../auth";
 
 const sequenceRT = sequenceT(RT.readerTask);
 
@@ -833,7 +834,7 @@ export const queryFields = [
         pipe(
           sequenceRT(
             decodeMapsConnectionCursor(args.after),
-            Relay.decodeFirst(500, 50)(args.first)
+            Relay.decodeFirst(20000, 100)(args.first)
           ),
           RT.chainW(([cursor, first]) =>
             resolvePaginatedMaps({
@@ -915,6 +916,32 @@ export const queryFields = [
           );
           return tokens;
         }
+      ),
+  }),
+  t.field({
+    name: "mapsCount",
+    description: "Get total count of maps, optionally filtered by title.",
+    type: t.NonNull(t.Int),
+    args: {
+      titleNeedle: t.arg(t.String, "Needle for filtering the items."),
+    },
+    resolve: (_, args, context) =>
+      RT.run(
+        pipe(
+          auth.requireAdmin(),
+          RT.chainW(() => RT.ask<{ maps: { getAll: () => MapEntity[] } }>()),
+          RT.map((deps) => {
+            let allMaps = deps.maps.getAll();
+            if (args.titleNeedle) {
+              const needle = args.titleNeedle.toLowerCase();
+              allMaps = allMaps.filter((m) =>
+                m.title.toLowerCase().includes(needle)
+              );
+            }
+            return allMaps.length;
+          })
+        ),
+        context
       ),
   }),
 ];

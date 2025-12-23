@@ -245,6 +245,20 @@ export const NotesTab: React.FC = () => {
     onClose: onMonsterModalClose,
   } = useDisclosure();
 
+  // Duplicate note detection state
+  type DuplicateAction = "skip" | "replace" | "rename";
+  const [duplicateMonsters, setDuplicateMonsters] = React.useState<
+    Map<string, { existingNoteId: string; existingTitle: string }>
+  >(new Map());
+  const [duplicateActions, setDuplicateActions] = React.useState<
+    Map<string, DuplicateAction>
+  >(new Map());
+  const {
+    isOpen: isDuplicateModalOpen,
+    onOpen: onDuplicateModalOpen,
+    onClose: onDuplicateModalClose,
+  } = useDisclosure();
+
   const {
     isOpen: isDeleteOpen,
     onOpen: onDeleteOpen,
@@ -256,11 +270,11 @@ export const NotesTab: React.FC = () => {
     onClose: onViewClose,
   } = useDisclosure();
 
-  // Fetch notes (server now allows up to 500)
+  // Fetch notes (server now allows up to 20000)
   const { data, isLoading, error, retry } = useQuery<notesTab_NotesQuery>(
     notesQuery,
     {
-      first: 500,
+      first: 20000,
     }
   );
 
@@ -429,7 +443,7 @@ export const NotesTab: React.FC = () => {
     return lines.join("\n");
   };
 
-  // Create notes from selected monsters
+  // Check for duplicate notes and show modal if any found
   const handleCreateNotesFromMonsters = async () => {
     const selectedMonsters = monsters.filter((m) => m.selected);
     if (selectedMonsters.length === 0) {
@@ -442,35 +456,151 @@ export const NotesTab: React.FC = () => {
       return;
     }
 
+    // Check for duplicates against existing notes
+    const existingNotes = data?.notes?.edges || [];
+    const existingTitlesMap = new Map<string, { id: string; title: string }>();
+    existingNotes.forEach((edge) => {
+      const lowerTitle = edge.node.title.toLowerCase();
+      existingTitlesMap.set(lowerTitle, {
+        id: edge.node.id,
+        title: edge.node.title,
+      });
+    });
+
+    const duplicates = new Map<
+      string,
+      { existingNoteId: string; existingTitle: string }
+    >();
+    selectedMonsters.forEach((monster) => {
+      const existing = existingTitlesMap.get(monster.name.toLowerCase());
+      if (existing) {
+        duplicates.set(monster.name, {
+          existingNoteId: existing.id,
+          existingTitle: existing.title,
+        });
+      }
+    });
+
+    if (duplicates.size > 0) {
+      // Show duplicate handling modal
+      setDuplicateMonsters(duplicates);
+      // Default all to "skip"
+      const actions = new Map<string, DuplicateAction>();
+      duplicates.forEach((_, name) => actions.set(name, "skip"));
+      setDuplicateActions(actions);
+      onDuplicateModalOpen();
+      return;
+    }
+
+    // No duplicates, proceed with import
+    await performMonsterImport(selectedMonsters, new Map());
+  };
+
+  // Helper to set duplicate action for a monster
+  const setDuplicateAction = (monsterName: string, action: DuplicateAction) => {
+    setDuplicateActions((prev) => {
+      const next = new Map(prev);
+      next.set(monsterName, action);
+      return next;
+    });
+  };
+
+  // Handle duplicate modal confirmation
+  const handleDuplicateConfirm = async () => {
+    onDuplicateModalClose();
+    const selectedMonsters = monsters.filter((m) => m.selected);
+    await performMonsterImport(selectedMonsters, duplicateActions);
+  };
+
+  // Handle duplicate modal cancel
+  const handleDuplicateCancel = () => {
+    onDuplicateModalClose();
+    setDuplicateMonsters(new Map());
+    setDuplicateActions(new Map());
+  };
+
+  // Perform the actual import with duplicate handling
+  const performMonsterImport = async (
+    selectedMonsters: MonsterData[],
+    actions: Map<string, DuplicateAction>
+  ) => {
     setIsCreatingNotes(true);
     setImportProgress(0);
 
     let successCount = 0;
+    let skipCount = 0;
     let failCount = 0;
 
     for (let i = 0; i < selectedMonsters.length; i++) {
       const monster = selectedMonsters[i];
+      const action = actions.get(monster.name) || "create"; // Default to create if no action set
+      const duplicateInfo = duplicateMonsters.get(monster.name);
+
       try {
-        await noteCreate({
-          variables: {
-            input: {
-              title: monster.name,
-              content: formatMonsterContent(monster),
-              isEntryPoint: false,
+        if (duplicateInfo) {
+          // Handle duplicate according to selected action
+          if (action === "skip") {
+            skipCount++;
+          } else if (action === "replace") {
+            // Update existing note content
+            await noteUpdateContent({
+              variables: {
+                input: {
+                  id: duplicateInfo.existingNoteId,
+                  content: formatMonsterContent(monster),
+                },
+              },
+            });
+            successCount++;
+          } else if (action === "rename") {
+            // Create with numbered suffix
+            let suffix = 2;
+            let newTitle = `${monster.name} (${suffix})`;
+            const existingTitles = new Set(
+              (data?.notes?.edges || []).map((e) => e.node.title.toLowerCase())
+            );
+            while (existingTitles.has(newTitle.toLowerCase())) {
+              suffix++;
+              newTitle = `${monster.name} (${suffix})`;
+            }
+            await noteCreate({
+              variables: {
+                input: {
+                  title: newTitle,
+                  content: formatMonsterContent(monster),
+                  isEntryPoint: false,
+                },
+              },
+            });
+            successCount++;
+          }
+        } else {
+          // No duplicate, create normally
+          await noteCreate({
+            variables: {
+              input: {
+                title: monster.name,
+                content: formatMonsterContent(monster),
+                isEntryPoint: false,
+              },
             },
-          },
-        });
-        successCount++;
+          });
+          successCount++;
+        }
       } catch (err) {
-        console.error(`Failed to create note for ${monster.name}:`, err);
+        console.error(`Failed to import ${monster.name}:`, err);
         failCount++;
       }
       setImportProgress(((i + 1) / selectedMonsters.length) * 100);
     }
 
+    let description = `Created/Updated ${successCount} notes`;
+    if (skipCount > 0) description += `, skipped ${skipCount} duplicates`;
+    if (failCount > 0) description += `, ${failCount} failed`;
+
     toast({
       title: "Import complete",
-      description: `Created ${successCount} notes, ${failCount} failed`,
+      description,
       status: failCount === 0 ? "success" : "warning",
       duration: 5000,
     });
@@ -1101,6 +1231,178 @@ export const NotesTab: React.FC = () => {
             >
               Create Notes ({monsters.filter((m) => m.selected).length})
             </UploadButton>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* Duplicate Notes Detection Modal */}
+      <Modal
+        isOpen={isDuplicateModalOpen}
+        onClose={handleDuplicateCancel}
+        size="xl"
+        scrollBehavior="inside"
+      >
+        <ModalOverlay />
+        <ModalContent
+          bg={COLORS.cardBg}
+          borderColor={COLORS.border}
+          maxH="80vh"
+        >
+          <ModalHeader
+            color={COLORS.text}
+            borderBottom="1px solid"
+            borderColor={COLORS.border}
+          >
+            Duplicate Notes Detected
+          </ModalHeader>
+          <ModalCloseButton color={COLORS.text} />
+          <ModalBody>
+            <Text color={COLORS.textLight} mb={4}>
+              The following {duplicateMonsters.size} monster(s) have names
+              matching existing notes. Choose how to handle each:
+            </Text>
+            <Box
+              maxH="300px"
+              overflowY="auto"
+              border="1px solid"
+              borderColor={COLORS.border}
+              borderRadius="md"
+            >
+              <Table size="sm" variant="simple">
+                <Thead bg={COLORS.cardBgEnd} position="sticky" top={0}>
+                  <Tr>
+                    <Th color={COLORS.text}>Monster Name</Th>
+                    <Th color={COLORS.text}>Action</Th>
+                  </Tr>
+                </Thead>
+                <Tbody>
+                  {Array.from(duplicateMonsters.entries()).map(
+                    ([name, info]) => (
+                      <Tr key={name}>
+                        <Td color={COLORS.text}>
+                          <Text fontWeight="bold">{name}</Text>
+                          <Text fontSize="xs" color={COLORS.textLight}>
+                            Existing: "{info.existingTitle}"
+                          </Text>
+                        </Td>
+                        <Td>
+                          <VStack align="start" spacing={1}>
+                            <HStack>
+                              <input
+                                type="radio"
+                                name={`action-${name}`}
+                                checked={duplicateActions.get(name) === "skip"}
+                                onChange={() =>
+                                  setDuplicateAction(name, "skip")
+                                }
+                              />
+                              <Text color={COLORS.text} fontSize="sm">
+                                Skip (don't import)
+                              </Text>
+                            </HStack>
+                            <HStack>
+                              <input
+                                type="radio"
+                                name={`action-${name}`}
+                                checked={
+                                  duplicateActions.get(name) === "replace"
+                                }
+                                onChange={() =>
+                                  setDuplicateAction(name, "replace")
+                                }
+                              />
+                              <Text color={COLORS.text} fontSize="sm">
+                                Replace existing
+                              </Text>
+                            </HStack>
+                            <HStack>
+                              <input
+                                type="radio"
+                                name={`action-${name}`}
+                                checked={
+                                  duplicateActions.get(name) === "rename"
+                                }
+                                onChange={() =>
+                                  setDuplicateAction(name, "rename")
+                                }
+                              />
+                              <Text color={COLORS.text} fontSize="sm">
+                                Import with new name
+                              </Text>
+                            </HStack>
+                          </VStack>
+                        </Td>
+                      </Tr>
+                    )
+                  )}
+                </Tbody>
+              </Table>
+            </Box>
+            <HStack mt={4} spacing={4}>
+              <Button
+                size="sm"
+                variant="outline"
+                borderColor={COLORS.border}
+                color={COLORS.text}
+                onClick={() => {
+                  const next = new Map(duplicateActions);
+                  duplicateMonsters.forEach((_, name) =>
+                    next.set(name, "skip")
+                  );
+                  setDuplicateActions(next);
+                }}
+              >
+                Skip All
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                borderColor={COLORS.border}
+                color={COLORS.text}
+                onClick={() => {
+                  const next = new Map(duplicateActions);
+                  duplicateMonsters.forEach((_, name) =>
+                    next.set(name, "replace")
+                  );
+                  setDuplicateActions(next);
+                }}
+              >
+                Replace All
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                borderColor={COLORS.border}
+                color={COLORS.text}
+                onClick={() => {
+                  const next = new Map(duplicateActions);
+                  duplicateMonsters.forEach((_, name) =>
+                    next.set(name, "rename")
+                  );
+                  setDuplicateActions(next);
+                }}
+              >
+                Rename All
+              </Button>
+            </HStack>
+          </ModalBody>
+          <ModalFooter borderTop="1px solid" borderColor={COLORS.border}>
+            <Button
+              variant="ghost"
+              mr={3}
+              onClick={handleDuplicateCancel}
+              color={COLORS.text}
+            >
+              Cancel
+            </Button>
+            <Button
+              bg={COLORS.accent}
+              color="white"
+              onClick={handleDuplicateConfirm}
+              _hover={{ bg: COLORS.border }}
+            >
+              Confirm Import
+            </Button>
           </ModalFooter>
         </ModalContent>
       </Modal>

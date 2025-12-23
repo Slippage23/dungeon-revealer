@@ -204,7 +204,7 @@ export const queryFields = [
         pipe(
           sequenceReaderTask(
             decodeTokenImagesCursor(args.after),
-            Relay.decodeFirst(500, 50)(args.first)
+            Relay.decodeFirst(20000, 100)(args.first)
           ),
           RT.chainW(([cursor, first]) =>
             pipe(
@@ -223,6 +223,31 @@ export const queryFields = [
               )
             )
           )
+        ),
+        context
+      ),
+  }),
+  t.field({
+    name: "tokenImagesCount",
+    description: "Get total count of token images, optionally filtered.",
+    type: t.NonNull(t.Int),
+    args: {
+      titleFilter: t.arg(t.String),
+    },
+    resolve: (_, args, context) =>
+      RT.run(
+        pipe(
+          RT.ask<{ db: any }>(),
+          RT.chainW((deps) => () => async () => {
+            let query = 'SELECT COUNT(*) as count FROM "tokenImages"';
+            const params: any[] = [];
+            if (args.titleFilter) {
+              query += ' WHERE "title" LIKE ?';
+              params.push(`%${args.titleFilter}%`);
+            }
+            const result = await deps.db.get(query, ...params);
+            return result?.count ?? 0;
+          })
         ),
         context
       ),

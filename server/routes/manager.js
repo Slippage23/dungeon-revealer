@@ -32,6 +32,22 @@ const calculateFileSha256 = (filePath) => {
   });
 };
 
+// Helper to decode Relay Global ID (base64 encoded "01:ResourceType:id")
+const decodeRelayId = (globalId) => {
+  try {
+    const decoded = decodeURIComponent(
+      Buffer.from(globalId, "base64").toString("utf-8")
+    );
+    const parts = decoded.split(":");
+    if (parts.length === 3) {
+      return { version: parts[0], type: parts[1], id: parts[2] };
+    }
+    return null;
+  } catch (e) {
+    return null;
+  }
+};
+
 module.exports = ({
   roleMiddleware,
   maps,
@@ -337,6 +353,10 @@ module.exports = ({
       const results = [];
       const errors = [];
       const fileProcessingPromises = [];
+      let replaceIds = [];
+      let renameFiles = [];
+      let replaced = 0;
+      let renamed = 0;
 
       console.log("[Manager] upload-maps-browser called");
       console.log("[Manager] Content-Type:", req.headers["content-type"]);
@@ -353,6 +373,28 @@ module.exports = ({
 
           req.pipe(req.busboy);
 
+          // Handle form fields (replaceIds and renameFiles)
+          req.busboy.on("field", (fieldname, value) => {
+            console.log("[Manager] Field received:", fieldname, value);
+            if (fieldname === "replaceIds") {
+              try {
+                replaceIds = JSON.parse(value);
+              } catch (e) {
+                console.log("[Manager] Failed to parse replaceIds:", e.message);
+              }
+            }
+            if (fieldname === "renameFiles") {
+              try {
+                renameFiles = JSON.parse(value);
+              } catch (e) {
+                console.log(
+                  "[Manager] Failed to parse renameFiles:",
+                  e.message
+                );
+              }
+            }
+          });
+
           req.busboy.on("file", (fieldname, file, info) => {
             console.log(
               "[Manager] File received:",
@@ -362,7 +404,7 @@ module.exports = ({
             );
             const filename = info.filename;
             const fileExtension = parseFileExtension(filename);
-            const title = path.parse(filename).name;
+            let title = path.parse(filename).name;
             const tmpFile = getTmpFile(`.${fileExtension}`);
 
             const writeStream = fs.createWriteStream(tmpFile);
@@ -375,6 +417,37 @@ module.exports = ({
             const processingPromise = new Promise((resolveFile) => {
               writeStream.on("close", async () => {
                 try {
+                  // Check if this file should be renamed (add timestamp suffix)
+                  const shouldRename = renameFiles.includes(filename);
+                  if (shouldRename) {
+                    const timestamp = Date.now();
+                    title = `${title}_${timestamp}`;
+                    renamed++;
+                    console.log("[Manager] Renaming map to:", title);
+                  }
+
+                  // Check if this file should replace an existing map
+                  const replaceIndex =
+                    replaceIds.length > 0
+                      ? renameFiles.includes(filename)
+                        ? -1
+                        : replaceIds.shift()
+                      : -1;
+
+                  if (replaceIndex && replaceIndex !== -1) {
+                    // Delete the existing map first
+                    try {
+                      await maps.deleteMap(replaceIndex);
+                      replaced++;
+                      console.log("[Manager] Replaced map:", replaceIndex);
+                    } catch (delErr) {
+                      console.log(
+                        "[Manager] Failed to delete existing map:",
+                        delErr.message
+                      );
+                    }
+                  }
+
                   const created = await maps.createMap({
                     title,
                     filePath: tmpFile,
@@ -422,14 +495,27 @@ module.exports = ({
           fileProcessingPromises.length
         );
         await Promise.all(fileProcessingPromises);
-        console.log("[Manager] Maps done, imported:", results.length);
+        console.log(
+          "[Manager] Maps done, imported:",
+          results.length,
+          "replaced:",
+          replaced,
+          "renamed:",
+          renamed
+        );
 
         res.json({
           error:
             errors.length > 0
               ? { message: `${errors.length} files failed`, details: errors }
               : null,
-          data: { imported: results.length, results, errors },
+          data: {
+            imported: results.length,
+            replaced,
+            renamed,
+            results,
+            errors,
+          },
         });
       } catch (err) {
         res.status(500).json({ error: { message: err.message }, data: null });
@@ -445,6 +531,10 @@ module.exports = ({
       const results = [];
       const errors = [];
       const fileProcessingPromises = [];
+      let replaceIds = [];
+      let renameFiles = [];
+      let replaced = 0;
+      let renamed = 0;
 
       // Ensure token image directory exists
       await fs.ensureDir(tokenImageDir);
@@ -453,10 +543,32 @@ module.exports = ({
         await new Promise((resolve, reject) => {
           req.pipe(req.busboy);
 
+          // Handle form fields (replaceIds and renameFiles)
+          req.busboy.on("field", (fieldname, value) => {
+            console.log("[Manager] Token field received:", fieldname, value);
+            if (fieldname === "replaceIds") {
+              try {
+                replaceIds = JSON.parse(value);
+              } catch (e) {
+                console.log("[Manager] Failed to parse replaceIds:", e.message);
+              }
+            }
+            if (fieldname === "renameFiles") {
+              try {
+                renameFiles = JSON.parse(value);
+              } catch (e) {
+                console.log(
+                  "[Manager] Failed to parse renameFiles:",
+                  e.message
+                );
+              }
+            }
+          });
+
           req.busboy.on("file", (fieldname, file, info) => {
             const filename = info.filename;
             const fileExtension = parseFileExtension(filename);
-            const title = path.parse(filename).name;
+            let title = path.parse(filename).name;
             const tmpFile = getTmpFile(`.${fileExtension}`);
 
             const writeStream = fs.createWriteStream(tmpFile);
@@ -469,6 +581,77 @@ module.exports = ({
             const processingPromise = new Promise((resolveFile) => {
               writeStream.on("close", async () => {
                 try {
+                  // Check if this file should be renamed (add timestamp suffix)
+                  const shouldRename = renameFiles.includes(filename);
+                  if (shouldRename) {
+                    const timestamp = Date.now();
+                    title = `${title}_${timestamp}`;
+                    renamed++;
+                    console.log("[Manager] Renaming token to:", title);
+                  }
+
+                  // Check if this file should replace an existing token
+                  // We need to match by filename to the replaceIds array
+                  const shouldReplace = !shouldRename && replaceIds.length > 0;
+                  let replaceId = null;
+                  if (shouldReplace) {
+                    replaceId = replaceIds.shift();
+                  }
+
+                  if (replaceId) {
+                    // Delete the existing token first
+                    try {
+                      // Decode the Relay ID to get the actual database ID
+                      let actualId = replaceId;
+                      try {
+                        const decoded = Buffer.from(
+                          replaceId,
+                          "base64"
+                        ).toString("utf-8");
+                        const parts = decoded.split(":");
+                        if (parts.length >= 3) {
+                          actualId = parts.slice(2).join(":");
+                        }
+                      } catch (e) {
+                        // Use as-is if decoding fails
+                      }
+
+                      // Get the existing token's file info before deleting
+                      const existingToken = await db.get(
+                        `SELECT sha256, extension FROM "tokenImages" WHERE id = ?`,
+                        actualId
+                      );
+
+                      if (existingToken) {
+                        // Delete from database
+                        await db.run(
+                          `DELETE FROM "tokenImages" WHERE id = ?`,
+                          actualId
+                        );
+
+                        // Delete the file
+                        const oldFilePath = path.join(
+                          tokenImageDir,
+                          `${existingToken.sha256.toString("hex")}.${
+                            existingToken.extension
+                          }`
+                        );
+                        try {
+                          await fs.remove(oldFilePath);
+                        } catch (e) {
+                          // File might not exist, ignore
+                        }
+                        replaced++;
+                        console.log("[Manager] Replaced token:", actualId);
+                      }
+                    } catch (delErr) {
+                      console.log(
+                        "[Manager] Failed to delete existing token:",
+                        delErr.message
+                      );
+                    }
+                  }
+
                   // Calculate SHA256 of the file
                   const sha256 = await calculateFileSha256(tmpFile);
 
@@ -478,14 +661,14 @@ module.exports = ({
                     `${sha256}.${fileExtension}`
                   );
 
-                  // Check if this token already exists (by SHA256)
+                  // Check if this token already exists (by SHA256) - only if not replacing
                   const existingToken = await db.get(
                     `SELECT id FROM "tokenImages" WHERE sha256 = ?`,
                     Buffer.from(sha256, "hex")
                   );
 
-                  if (existingToken) {
-                    // Token already exists, skip
+                  if (existingToken && !replaceId && !shouldRename) {
+                    // Token already exists (same file content), skip
                     results.push({
                       file: filename,
                       tokenId: existingToken.id,
@@ -543,19 +726,86 @@ module.exports = ({
 
         // Wait for ALL file processing to complete
         await Promise.all(fileProcessingPromises);
+        console.log(
+          "[Manager] Tokens done, imported:",
+          results.length,
+          "replaced:",
+          replaced,
+          "renamed:",
+          renamed
+        );
 
         res.json({
           error:
             errors.length > 0
               ? { message: `${errors.length} files failed`, details: errors }
               : null,
-          data: { imported: results.length, results, errors },
+          data: {
+            imported: results.length,
+            replaced,
+            renamed,
+            results,
+            errors,
+          },
         });
       } catch (err) {
         res.status(500).json({ error: { message: err.message }, data: null });
       }
     }
   );
+
+  // Delete a token image by ID
+  router.delete("/manager/token/:id", roleMiddleware.dm, async (req, res) => {
+    const { id: rawId } = req.params;
+    console.log("[Manager] Delete token requested:", rawId);
+
+    // Decode Relay Global ID to get the actual database ID
+    const decoded = decodeRelayId(rawId);
+    const dbId = decoded ? decoded.id : rawId;
+    console.log("[Manager] Decoded token ID:", dbId);
+
+    try {
+      // Get the token info first
+      const token = await db.get(
+        `SELECT id, sha256, extension FROM "tokenImages" WHERE id = ?`,
+        dbId
+      );
+
+      if (!token) {
+        return res.status(404).json({
+          error: { message: `Token with id "${rawId}" not found` },
+          data: null,
+        });
+      }
+
+      // Delete the file
+      const filePath = path.join(
+        tokenImageDir,
+        `${token.sha256.toString("hex")}.${token.extension}`
+      );
+      try {
+        await fs.remove(filePath);
+        console.log("[Manager] Deleted token file:", filePath);
+      } catch (e) {
+        console.log(
+          "[Manager] Token file not found (may be shared):",
+          filePath
+        );
+      }
+
+      // Delete from database
+      await db.run(`DELETE FROM "tokenImages" WHERE id = ?`, dbId);
+      console.log("[Manager] Deleted token from database:", dbId);
+
+      res.json({
+        error: null,
+        data: { deletedTokenId: rawId },
+      });
+    } catch (err) {
+      console.error("[Manager] Delete token error:", err);
+      res.status(500).json({ error: { message: err.message }, data: null });
+    }
+  });
 
   return { router };
 };

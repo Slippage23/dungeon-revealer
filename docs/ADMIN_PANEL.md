@@ -15,8 +15,10 @@ The Admin Panel provides DMs with a centralized dashboard for managing all aspec
 ### Maps Tab
 
 - View all uploaded maps with thumbnails
+- **Image Preview**: Click any map thumbnail to view full-size image in modal
 - **Sorting**: A↔Z toggle button for alphabetical ordering (ascending/descending)
 - **Pagination**: 24 maps per page with Previous/Next navigation
+- **Duplicate Detection**: Upload modal with Skip/Replace/Rename options for duplicates
 - Quick access to map settings
 - Upload new maps (single or bulk)
 - Bulk upload from configured scan directories
@@ -25,8 +27,10 @@ The Admin Panel provides DMs with a centralized dashboard for managing all aspec
 ### Tokens Tab
 
 - Browse token library with visual previews
+- **Image Preview**: Click any token thumbnail to view full-size image in modal
 - **Sorting**: A↔Z toggle button for alphabetical ordering (ascending/descending)
 - **Pagination**: 24 tokens per page with Previous/Next navigation
+- **Duplicate Detection**: Upload modal with Skip/Replace/Rename options for duplicates
 - Upload new token images (single or bulk)
 - Bulk upload from configured scan directories
 - Organize tokens by category
@@ -38,6 +42,7 @@ The Admin Panel provides DMs with a centralized dashboard for managing all aspec
 - **Sortable Columns**: Click Title or Created headers to sort (▲/▼ indicators)
 - **Pagination**: 25 notes per page with Previous/Next navigation
 - **Edit Button**: Inline editing via modal dialog
+- **Duplicate Detection**: When importing from Excel, prompts for duplicates with Skip/Replace/Rename
 - Search and filter notes
 - Create new notes
 - Import from Markdown files or Excel spreadsheets (monster stat blocks)

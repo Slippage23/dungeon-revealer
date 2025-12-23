@@ -27,6 +27,12 @@ import {
   ModalCloseButton,
   FormControl,
   FormLabel,
+  Table,
+  Thead,
+  Tbody,
+  Tr,
+  Th,
+  Td,
 } from "@chakra-ui/react";
 import graphql from "babel-plugin-relay/macro";
 import { useQuery, useMutation } from "relay-hooks";
@@ -34,6 +40,12 @@ import { tokensTab_TokensQuery } from "./__generated__/tokensTab_TokensQuery.gra
 import { tokensTab_UpdateTitleMutation } from "./__generated__/tokensTab_UpdateTitleMutation.graphql";
 import { useAccessToken } from "../../hooks/use-access-token";
 import { buildApiUrl } from "../../public-url";
+
+// Types for duplicate handling
+type PendingTokenUpload = {
+  file: File;
+  duplicateOf?: { id: string; title: string };
+};
 
 const COLORS = {
   // New warm cream palette
@@ -175,6 +187,7 @@ const tokensQuery = graphql`
         endCursor
       }
     }
+    tokenImagesCount(titleFilter: $titleFilter)
   }
 `;
 
@@ -185,6 +198,19 @@ export const TokensTab: React.FC = () => {
   const accessToken = useAccessToken();
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
+  // Duplicate handling state
+  const [pendingUploads, setPendingUploads] = React.useState<
+    PendingTokenUpload[]
+  >([]);
+  const [duplicateActions, setDuplicateActions] = React.useState<
+    Map<string, "skip" | "replace" | "rename">
+  >(new Map());
+  const {
+    isOpen: isDuplicateModalOpen,
+    onOpen: onDuplicateModalOpen,
+    onClose: onDuplicateModalClose,
+  } = useDisclosure();
+
   // Sorting state
   const [sortDirection, setSortDirection] = React.useState<"asc" | "desc">(
     "asc"
@@ -193,6 +219,18 @@ export const TokensTab: React.FC = () => {
   // Pagination state
   const [currentPage, setCurrentPage] = React.useState(1);
   const itemsPerPage = 24;
+
+  // Image preview modal state
+  const {
+    isOpen: isPreviewOpen,
+    onOpen: onPreviewOpen,
+    onClose: onPreviewClose,
+  } = useDisclosure();
+  const [previewToken, setPreviewToken] = React.useState<{
+    id: string;
+    title: string;
+    url: string;
+  } | null>(null);
 
   // Rename modal state
   const {
@@ -221,18 +259,95 @@ export const TokensTab: React.FC = () => {
   const [updateTitle] =
     useMutation<tokensTab_UpdateTitleMutation>(UpdateTitleMutation);
 
+  // Helper to get token title from filename (removes extension)
+  const getTokenTitleFromFile = (file: File): string => {
+    return file.name.replace(/\.[^/.]+$/, "");
+  };
+
+  // Check for duplicates and handle upload
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    // Copy files to FormData BEFORE resetting input
-    const formData = new FormData();
-    for (let i = 0; i < files.length; i++) {
-      formData.append("files", files[i]);
+    // Reset input so same files can be selected again
+    const fileList = Array.from(files);
+    e.target.value = "";
+
+    // Get existing token titles for duplicate detection
+    const existingTokens = data?.tokenImages?.edges || [];
+    const existingTitles = new Map(
+      existingTokens.map((edge) => [edge.node.title.toLowerCase(), edge.node])
+    );
+
+    // Check each file for duplicates
+    const uploads: PendingTokenUpload[] = fileList.map((file) => {
+      const title = getTokenTitleFromFile(file);
+      const existing = existingTitles.get(title.toLowerCase());
+      return {
+        file,
+        duplicateOf: existing
+          ? { id: existing.id, title: existing.title }
+          : undefined,
+      };
+    });
+
+    const duplicates = uploads.filter((u) => u.duplicateOf);
+
+    if (duplicates.length > 0) {
+      // Initialize all duplicates to "skip" by default
+      const actions = new Map<string, "skip" | "replace" | "rename">();
+      duplicates.forEach((d) => actions.set(d.file.name, "skip"));
+      setDuplicateActions(actions);
+      setPendingUploads(uploads);
+      onDuplicateModalOpen();
+    } else {
+      // No duplicates, upload directly
+      await performUpload(uploads, new Map());
+    }
+  };
+
+  // Perform the actual upload with duplicate handling
+  const performUpload = async (
+    uploads: PendingTokenUpload[],
+    actions: Map<string, "skip" | "replace" | "rename">
+  ) => {
+    const filesToUpload: File[] = [];
+    const replaceIds: string[] = [];
+    const renameFiles: string[] = [];
+
+    for (const upload of uploads) {
+      if (upload.duplicateOf) {
+        const action = actions.get(upload.file.name) || "skip";
+        if (action === "skip") continue;
+        if (action === "replace") {
+          filesToUpload.push(upload.file);
+          replaceIds.push(upload.duplicateOf.id);
+        } else if (action === "rename") {
+          filesToUpload.push(upload.file);
+          renameFiles.push(upload.file.name);
+        }
+      } else {
+        filesToUpload.push(upload.file);
+      }
     }
 
-    // Reset input so same files can be selected again
-    e.target.value = "";
+    if (filesToUpload.length === 0) {
+      toast({
+        title: "No tokens to upload",
+        description: "All duplicates were skipped",
+        status: "info",
+        duration: 3000,
+      });
+      return;
+    }
+
+    const formData = new FormData();
+    for (const file of filesToUpload) {
+      formData.append("files", file);
+    }
+    // Pass replace IDs and rename flags to backend
+    formData.append("replaceIds", JSON.stringify(replaceIds));
+    formData.append("renameFiles", JSON.stringify(renameFiles));
 
     setIsUploading(true);
     try {
@@ -247,19 +362,27 @@ export const TokensTab: React.FC = () => {
       if (json.error && !json.data) throw new Error(json.error.message);
 
       const imported = json.data?.imported || 0;
+      const replaced = json.data?.replaced || 0;
+      const renamed = json.data?.renamed || 0;
       const errors = json.data?.errors || [];
+
+      let description = `Imported ${imported} token${
+        imported !== 1 ? "s" : ""
+      }`;
+      if (replaced > 0) description += `, replaced ${replaced}`;
+      if (renamed > 0) description += `, renamed ${renamed}`;
 
       if (errors.length > 0) {
         toast({
           title: "Partial upload",
-          description: `Imported ${imported} tokens. ${errors.length} failed.`,
+          description: `${description}. ${errors.length} failed.`,
           status: "warning",
           duration: 5000,
         });
       } else {
         toast({
           title: "Upload complete",
-          description: `Imported ${imported} token${imported !== 1 ? "s" : ""}`,
+          description,
           status: "success",
           duration: 4000,
         });
@@ -275,6 +398,33 @@ export const TokensTab: React.FC = () => {
     } finally {
       setIsUploading(false);
     }
+  };
+
+  // Handle duplicate modal confirmation
+  const handleDuplicateConfirm = async () => {
+    onDuplicateModalClose();
+    await performUpload(pendingUploads, duplicateActions);
+    setPendingUploads([]);
+    setDuplicateActions(new Map());
+  };
+
+  // Handle duplicate modal cancel
+  const handleDuplicateCancel = () => {
+    onDuplicateModalClose();
+    setPendingUploads([]);
+    setDuplicateActions(new Map());
+  };
+
+  // Update action for a specific file
+  const setDuplicateAction = (
+    fileName: string,
+    action: "skip" | "replace" | "rename"
+  ) => {
+    setDuplicateActions((prev) => {
+      const next = new Map(prev);
+      next.set(fileName, action);
+      return next;
+    });
   };
 
   const [selectedToken, setSelectedToken] = React.useState<{
@@ -293,7 +443,7 @@ export const TokensTab: React.FC = () => {
   const { data, isLoading, error, retry } = useQuery<tokensTab_TokensQuery>(
     tokensQuery,
     {
-      first: 500,
+      first: 20000,
       titleFilter: searchTerm || undefined,
     }
   );
@@ -369,7 +519,7 @@ export const TokensTab: React.FC = () => {
 
     setIsDeleting(true);
     try {
-      const response = await fetch(buildApiUrl(`/images/${tokenId}`), {
+      const response = await fetch(buildApiUrl(`/manager/token/${tokenId}`), {
         method: "DELETE",
         headers: {
           Authorization: accessToken ? `Bearer ${accessToken}` : "",
@@ -377,7 +527,10 @@ export const TokensTab: React.FC = () => {
       });
 
       if (!response.ok) {
-        throw new Error(`Delete failed: ${response.statusText}`);
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(
+          errorData?.error?.message || `Delete failed: ${response.statusText}`
+        );
       }
 
       toast({
@@ -402,6 +555,7 @@ export const TokensTab: React.FC = () => {
   };
 
   const tokens = data?.tokenImages?.edges || [];
+  const totalCount = data?.tokenImagesCount ?? tokens.length;
 
   // Sort tokens
   const sortedTokens = React.useMemo(() => {
@@ -515,7 +669,17 @@ export const TokensTab: React.FC = () => {
           <SimpleGrid columns={{ base: 2, md: 3, lg: 4, xl: 6 }} spacing={4}>
             {paginatedTokens.map((edge) => (
               <TokenCard key={edge.node.id}>
-                <TokenImage>
+                <TokenImage
+                  style={{ cursor: "pointer" }}
+                  onClick={() => {
+                    setPreviewToken({
+                      id: edge.node.id,
+                      title: edge.node.title,
+                      url: edge.node.url || "",
+                    });
+                    onPreviewOpen();
+                  }}
+                >
                   {edge.node.url ? (
                     <img src={edge.node.url} alt={edge.node.title} />
                   ) : (
@@ -563,6 +727,21 @@ export const TokensTab: React.FC = () => {
           </SimpleGrid>
 
           {/* Pagination Controls */}
+          {totalCount > sortedTokens.length && (
+            <Box
+              bg="orange.100"
+              color="orange.800"
+              p={3}
+              borderRadius="md"
+              textAlign="center"
+              mb={4}
+            >
+              <Text fontSize="sm">
+                ⚠️ Showing {sortedTokens.length} of {totalCount} tokens. Use the
+                search box to filter and find specific tokens.
+              </Text>
+            </Box>
+          )}
           {totalPages > 1 && (
             <HStack justifyContent="center" spacing={4} mt={4}>
               <Button
@@ -592,8 +771,8 @@ export const TokensTab: React.FC = () => {
                 Prev
               </Button>
               <Text color={COLORS.text} fontSize="14px">
-                Page {currentPage} of {totalPages} ({sortedTokens.length}{" "}
-                tokens)
+                Page {currentPage} of {totalPages} ({sortedTokens.length} loaded
+                / {totalCount} total)
               </Text>
               <Button
                 size="sm"
@@ -694,6 +873,231 @@ export const TokensTab: React.FC = () => {
               isDisabled={!newTokenTitle.trim()}
             >
               Rename
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* Duplicate Tokens Modal */}
+      <Modal
+        isOpen={isDuplicateModalOpen}
+        onClose={handleDuplicateCancel}
+        size="xl"
+      >
+        <ModalOverlay />
+        <ModalContent
+          bg={COLORS.cardBg}
+          borderColor={COLORS.border}
+          borderWidth="3px"
+          maxW="700px"
+        >
+          <ModalHeader color={COLORS.text} fontFamily="Georgia, serif">
+            ⚠️ Duplicate Tokens Detected
+          </ModalHeader>
+          <ModalCloseButton color={COLORS.text} />
+          <ModalBody>
+            <Text color={COLORS.textLight} mb={4}>
+              The following tokens already exist. Choose an action for each:
+            </Text>
+            <Box
+              maxH="300px"
+              overflowY="auto"
+              border="1px solid"
+              borderColor={COLORS.border}
+              borderRadius="md"
+            >
+              <Table size="sm" variant="simple">
+                <Thead bg={COLORS.cardBgEnd} position="sticky" top={0}>
+                  <Tr>
+                    <Th color={COLORS.text}>File Name</Th>
+                    <Th color={COLORS.text}>Action</Th>
+                  </Tr>
+                </Thead>
+                <Tbody>
+                  {pendingUploads
+                    .filter((u) => u.duplicateOf)
+                    .map((upload) => (
+                      <Tr key={upload.file.name}>
+                        <Td color={COLORS.text}>
+                          <Text fontWeight="bold">{upload.file.name}</Text>
+                          <Text fontSize="xs" color={COLORS.textLight}>
+                            Existing: "{upload.duplicateOf?.title}"
+                          </Text>
+                        </Td>
+                        <Td>
+                          <VStack align="start" spacing={1}>
+                            <HStack>
+                              <input
+                                type="radio"
+                                name={`action-${upload.file.name}`}
+                                checked={
+                                  duplicateActions.get(upload.file.name) ===
+                                  "skip"
+                                }
+                                onChange={() =>
+                                  setDuplicateAction(upload.file.name, "skip")
+                                }
+                              />
+                              <Text color={COLORS.text} fontSize="sm">
+                                Skip (don't upload)
+                              </Text>
+                            </HStack>
+                            <HStack>
+                              <input
+                                type="radio"
+                                name={`action-${upload.file.name}`}
+                                checked={
+                                  duplicateActions.get(upload.file.name) ===
+                                  "replace"
+                                }
+                                onChange={() =>
+                                  setDuplicateAction(
+                                    upload.file.name,
+                                    "replace"
+                                  )
+                                }
+                              />
+                              <Text color={COLORS.text} fontSize="sm">
+                                Replace existing
+                              </Text>
+                            </HStack>
+                            <HStack>
+                              <input
+                                type="radio"
+                                name={`action-${upload.file.name}`}
+                                checked={
+                                  duplicateActions.get(upload.file.name) ===
+                                  "rename"
+                                }
+                                onChange={() =>
+                                  setDuplicateAction(upload.file.name, "rename")
+                                }
+                              />
+                              <Text color={COLORS.text} fontSize="sm">
+                                Upload with new name
+                              </Text>
+                            </HStack>
+                          </VStack>
+                        </Td>
+                      </Tr>
+                    ))}
+                </Tbody>
+              </Table>
+            </Box>
+            <HStack mt={4} spacing={4}>
+              <Button
+                size="sm"
+                variant="outline"
+                borderColor={COLORS.border}
+                color={COLORS.text}
+                onClick={() => {
+                  const next = new Map(duplicateActions);
+                  pendingUploads
+                    .filter((u) => u.duplicateOf)
+                    .forEach((u) => next.set(u.file.name, "skip"));
+                  setDuplicateActions(next);
+                }}
+              >
+                Skip All
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                borderColor={COLORS.border}
+                color={COLORS.text}
+                onClick={() => {
+                  const next = new Map(duplicateActions);
+                  pendingUploads
+                    .filter((u) => u.duplicateOf)
+                    .forEach((u) => next.set(u.file.name, "replace"));
+                  setDuplicateActions(next);
+                }}
+              >
+                Replace All
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                borderColor={COLORS.border}
+                color={COLORS.text}
+                onClick={() => {
+                  const next = new Map(duplicateActions);
+                  pendingUploads
+                    .filter((u) => u.duplicateOf)
+                    .forEach((u) => next.set(u.file.name, "rename"));
+                  setDuplicateActions(next);
+                }}
+              >
+                Rename All
+              </Button>
+            </HStack>
+          </ModalBody>
+          <ModalFooter>
+            <Button
+              variant="ghost"
+              mr={3}
+              onClick={handleDuplicateCancel}
+              color={COLORS.text}
+            >
+              Cancel
+            </Button>
+            <Button
+              bg={COLORS.accent}
+              color="white"
+              onClick={handleDuplicateConfirm}
+              _hover={{ bg: COLORS.border }}
+            >
+              Confirm Upload
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* Image Preview Modal */}
+      <Modal
+        isOpen={isPreviewOpen}
+        onClose={onPreviewClose}
+        size="4xl"
+        isCentered
+      >
+        <ModalOverlay bg="blackAlpha.700" />
+        <ModalContent bg={COLORS.cardBg} maxW="90vw" maxH="90vh">
+          <ModalHeader
+            color={COLORS.text}
+            borderBottom="1px solid"
+            borderColor={COLORS.border}
+          >
+            {previewToken?.title || "Token Preview"}
+          </ModalHeader>
+          <ModalCloseButton color={COLORS.text} />
+          <ModalBody
+            p={4}
+            display="flex"
+            justifyContent="center"
+            alignItems="center"
+          >
+            {previewToken?.url ? (
+              <img
+                src={previewToken.url}
+                alt={previewToken.title}
+                style={{
+                  maxWidth: "100%",
+                  maxHeight: "70vh",
+                  objectFit: "contain",
+                  borderRadius: "8px",
+                }}
+              />
+            ) : (
+              <Text color={COLORS.textLight}>No image available</Text>
+            )}
+          </ModalBody>
+          <ModalFooter borderTop="1px solid" borderColor={COLORS.border}>
+            <Button
+              variant="ghost"
+              onClick={onPreviewClose}
+              color={COLORS.text}
+            >
+              Close
             </Button>
           </ModalFooter>
         </ModalContent>

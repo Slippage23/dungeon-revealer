@@ -317,6 +317,21 @@ const sequenceRT = sequenceT(RT.readerTask);
 
 export const queryFields = [
   t.field({
+    name: "notesCount",
+    type: t.NonNull(t.Int),
+    args: {
+      filter: t.arg(GraphQLNotesFilterEnum),
+    },
+    resolve: async (_, args, context) => {
+      const filter =
+        args.filter === "entrypoint" ? `WHERE "isEntryPoint" = 1` : "";
+      const result = await context.db.get<{ count: number }>(
+        `SELECT COUNT(*) as count FROM "notes" ${filter}`
+      );
+      return result?.count ?? 0;
+    },
+  }),
+  t.field({
     name: "notes",
     type: t.NonNull(GraphQLNoteConnectionType),
     args: {
@@ -329,7 +344,7 @@ export const queryFields = [
         pipe(
           sequenceRT(
             decodeNotesConnectionCursor(args.after),
-            Relay.decodeFirst(500, 50)(args.first)
+            Relay.decodeFirst(20000, 100)(args.first)
           ),
           RT.chainW(([cursor, first]) =>
             resolvePaginatedNotes({

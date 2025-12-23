@@ -2,6 +2,58 @@
 
 All notable changes to Dungeon Revealer are documented here.
 
+## [1.20.5] - December 2025
+
+### Added
+
+- **Scalability Improvements**
+
+  - Server limits increased from 500 to 20,000 items for maps, tokens, and notes
+  - Added count queries (mapsCount, tokenImagesCount, notesCount) for accurate dashboard stats
+  - System can now handle large collections (20,000+ maps tested)
+
+- **Duplicate Detection & Prevention**
+
+  - Maps: Duplicate detection modal on upload with Skip/Replace/Rename options
+  - Tokens: Same duplicate detection pattern for token uploads
+  - Notes: Duplicate detection when importing monsters from Excel
+  - Case-insensitive title matching for all duplicate checks
+  - One-time duplicate cleanup performed (removed 3+ duplicate maps)
+
+- **Image Preview Feature**
+
+  - Click on any map thumbnail to view full-size image in modal
+  - Click on any token thumbnail to view full-size image in modal
+  - Centered modal with semi-transparent backdrop
+  - Responsive sizing (max 70vh height, 90vw width)
+
+- **Token Management Fixes**
+  - Fixed token delete functionality (was using wrong database table)
+  - Added new `/manager/token/:id` DELETE endpoint for tokenImages table
+  - Proper Relay Global ID decoding for delete operations
+  - Token names now display correctly (was showing IDs)
+
+### Changed
+
+- Dashboard "Connection" stat card changed to "Notes" count
+- All count displays now use dedicated count queries instead of edge counting
+
+### Fixed
+
+- Token delete returning 404 - now properly queries tokenImages table
+- Maps showing duplicates after import - added prevention modal
+- Tokens showing duplicates after import - added prevention modal
+- Notes importing duplicates from Excel - added duplicate handling modal
+
+### Technical
+
+- Added `decodeRelayId()` helper in manager.js for decoding base64 Relay Global IDs
+- Token delete endpoint decodes `01:TokenImage:id` format to extract database ID
+- Duplicate detection uses SHA256 hash matching for file-level duplicates
+- Title matching for UI-level duplicate detection (case-insensitive)
+
+---
+
 ## [1.20.4] - January 2025
 
 ### Added

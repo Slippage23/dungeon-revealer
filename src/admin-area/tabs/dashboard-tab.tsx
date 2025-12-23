@@ -123,66 +123,33 @@ const PageTitle = styled.h1`
 `;
 
 const mapQuery = graphql`
-  query dashboardTab_MapsQuery($first: Int) {
-    maps(first: $first) {
-      edges {
-        node {
-          id
-        }
-      }
-      pageInfo {
-        hasNextPage
-      }
-    }
+  query dashboardTab_MapsQuery {
+    mapsCount
   }
 `;
 
 const tokensQuery = graphql`
-  query dashboardTab_TokensQuery($first: Int) {
-    tokenImages(first: $first) {
-      edges {
-        node {
-          id
-        }
-      }
-      pageInfo {
-        hasNextPage
-      }
-    }
+  query dashboardTab_TokensQuery {
+    tokenImagesCount
   }
 `;
 
 const notesQuery = graphql`
-  query dashboardTab_NotesQuery($first: Int) {
-    notes(first: $first) {
-      edges {
-        node {
-          id
-        }
-      }
-      pageInfo {
-        hasNextPage
-      }
-    }
+  query dashboardTab_NotesQuery {
+    notesCount
   }
 `;
 
 export const DashboardTab: React.FC<{
   onNavigate?: (tab: "dashboard" | "maps" | "tokens" | "notes") => void;
 }> = ({ onNavigate }) => {
-  const mapQueryResult = useQuery<dashboardTab_MapsQuery>(mapQuery, {
-    first: 50,
-  });
-  const tokensQueryResult = useQuery<dashboardTab_TokensQuery>(tokensQuery, {
-    first: 50,
-  });
-  const notesQueryResult = useQuery<dashboardTab_NotesQuery>(notesQuery, {
-    first: 50,
-  });
+  const mapQueryResult = useQuery<dashboardTab_MapsQuery>(mapQuery, {});
+  const tokensQueryResult = useQuery<dashboardTab_TokensQuery>(tokensQuery, {});
+  const notesQueryResult = useQuery<dashboardTab_NotesQuery>(notesQuery, {});
 
-  const mapsCount = mapQueryResult.data?.maps?.edges?.length || 0;
-  const tokensCount = tokensQueryResult.data?.tokenImages?.edges?.length || 0;
-  const notesCount = notesQueryResult.data?.notes?.edges?.length || 0;
+  const mapsCount = mapQueryResult.data?.mapsCount ?? 0;
+  const tokensCount = tokensQueryResult.data?.tokenImagesCount ?? 0;
+  const notesCount = notesQueryResult.data?.notesCount ?? 0;
 
   const isLoading =
     mapQueryResult.isLoading ||
@@ -220,11 +187,8 @@ export const DashboardTab: React.FC<{
         </StatCard>
 
         <StatCard>
-          <StatLabel>Connection</StatLabel>
-          <StatNumber style={{ fontSize: "28px" }}>✓</StatNumber>
-          <Text fontSize="13px" color={COLORS.success} fontWeight="bold">
-            Online
-          </Text>
+          <StatLabel>Notes</StatLabel>
+          <StatNumber>{notesCount}</StatNumber>
         </StatCard>
       </SimpleGrid>
 

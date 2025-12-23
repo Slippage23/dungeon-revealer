@@ -130,6 +130,7 @@ type Query {
   users(first: Int, after: ID): ConnectedUserConnection!
   usersCount: Int!
   me: User!
+  notesCount(filter: NotesFilter): Int!
   notes(first: Int, after: String, filter: NotesFilter): NoteConnection!
   notesSearch(first: Int, after: String, query: String): NoteSearchConnection!
   note(documentId: ID!): Note
@@ -139,6 +140,11 @@ type Query {
     sourceImageSha256: String
     titleFilter: String
   ): TokenImageConnection
+
+  """
+  Get total count of token images, optionally filtered.
+  """
+  tokenImagesCount(titleFilter: String): Int!
 
   """
   Get token data by token ID
@@ -189,6 +195,16 @@ type Query {
   Get all tokens on a map by id (excludes reference tokens).
   """
   mapTokens(mapId: ID!): [MapToken!]!
+
+  """
+  Get total count of maps, optionally filtered by title.
+  """
+  mapsCount(
+    """
+    Needle for filtering the items.
+    """
+    titleNeedle: String
+  ): Int!
   noteTemplates(mapId: String!): [NoteTemplate!]!
   noteTemplate(id: String!): NoteTemplate
   noteCategoryTree(mapId: String!): [NoteCategoryNode!]!
@@ -239,16 +255,6 @@ type User {
   name: String!
 }
 
-type NoteConnection {
-  edges: [NoteEdge!]!
-  pageInfo: PageInfo!
-}
-
-type NoteEdge {
-  cursor: String!
-  node: Note!
-}
-
 """
 A filter that can be applied to the paginated notes.
 """
@@ -262,6 +268,16 @@ enum NotesFilter {
   Return all notes.
   """
   All
+}
+
+type NoteConnection {
+  edges: [NoteEdge!]!
+  pageInfo: PageInfo!
+}
+
+type NoteEdge {
+  cursor: String!
+  node: Note!
 }
 
 type NoteSearchConnection {
