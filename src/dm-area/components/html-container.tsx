@@ -85,6 +85,7 @@ const allowedTags = [
   "li",
   "hr",
   "img",
+  "br",
   ...Object.keys(components),
 ];
 
