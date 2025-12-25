@@ -172,9 +172,20 @@ const MapList = (props: {
 
   React.useEffect(() => props.reportMapsConnectionId(data.maps.__id));
 
+  // Sort maps alphabetically by title on the client side before rendering.
+  // Use a stable non-mutating sort so pagination data isn't modified.
+  const sortedEdges = React.useMemo(() => {
+    if (!data?.maps?.edges) return [] as typeof data.maps.edges;
+    return [...data.maps.edges].sort((a, b) => {
+      const aTitle = a?.node?.title ?? "";
+      const bTitle = b?.node?.title ?? "";
+      return aTitle.localeCompare(bTitle, undefined, { sensitivity: "base" });
+    });
+  }, [data.maps.edges]);
+
   return (
     <ScrollableList.List onScroll={onScroll}>
-      {data.maps.edges.map((item) => (
+      {sortedEdges.map((item) => (
         <ScrollableList.ListItem key={item.node.id}>
           <ScrollableList.ListItemButton
             tabIndex={1}

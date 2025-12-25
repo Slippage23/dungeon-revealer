@@ -72,14 +72,34 @@ export const NoteEditorActiveItem: React.FC<{
   // We wanna auto-save the node only after the content has changed
   const previousContent = React.useRef(content);
 
+  // Avoid clobbering local edits with fragment updates from Relay.
+  // Track whether the user is actively editing and only sync from fragment
+  // when we're not in the middle of a local edit.
+  const isEditingRef = React.useRef(false);
+
+  // When the editor calls onChange we will set content via setContent.
+  // To inform effects that user is editing, wrap setContent with a setter
+  // that toggles isEditingRef for a short period.
+  const setContentWithEditFlag = React.useCallback((value: string) => {
+    isEditingRef.current = true;
+    setContent(value);
+    // After a short delay assume user stopped typing; 750ms is longer than
+    // the autosave debounce (500ms) so fragment updates won't overwrite.
+    window.setTimeout(() => {
+      isEditingRef.current = false;
+    }, 750);
+  }, []);
+
   // Update local state when the Relay fragment changes (e.g., after template is applied)
-  // Only update if the fragment content differs from local state
+  // Only update if the fragment content differs from local state and the user
+  // is not actively editing.
   React.useEffect(() => {
-    if (node.content !== content) {
+    if (!isEditingRef.current && node.content !== content) {
       setContent(node.content || "");
       previousContent.current = node.content || "";
     }
-  }, [node.content, content]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [node.content]);
 
   React.useEffect(() => {
     if (previousContent.current !== content) {
@@ -95,7 +115,7 @@ export const NoteEditorActiveItem: React.FC<{
           <React.Suspense fallback="Loading...">
             <MarkdownEditor
               value={content}
-              onChange={setContent}
+              onChange={(v: string) => setContentWithEditFlag(v)}
               sideBarRef={sideBarRef}
               editorOnResizeRef={editorOnResizeRef}
             />

@@ -58,7 +58,7 @@ const TokenImageReference = () => {
                     <Button size="xs">Change</Button>
                   </PopoverTrigger>
                   <Portal>
-                    <PopoverContent width="400px">
+                    <PopoverContent width="600px" maxWidth="80vw">
                       <TokenImagePopoverContent
                         onSelect={(value) => setValue(value)}
                         onSelectFile={(file, connection) =>
@@ -87,7 +87,7 @@ const TokenImageReference = () => {
                   <Button size="xs">Add</Button>
                 </PopoverTrigger>
                 <Portal>
-                  <PopoverContent width="400px">
+                  <PopoverContent width="600px" maxWidth="80vw">
                     <TokenImagePopoverContent
                       onSelect={(value) => setValue(value)}
                       onSelectFile={(file, connection) =>
@@ -170,7 +170,7 @@ const TokenImageList = (props: {
           }
         }}
       >
-        <SimpleGrid columns={4} spacing={2}>
+        <SimpleGrid columns={6} spacing={3}>
           {pagination.data.tokenImages?.edges.map((edge) => (
             <Center key={edge.node.id}>
               <VStack
@@ -180,11 +180,16 @@ const TokenImageList = (props: {
               >
                 <Image
                   borderRadius="full"
-                  boxSize="50px"
+                  boxSize="64px"
                   src={edge.node.url}
                   alt={edge.node.title}
                 />
-                <Text fontSize="xs" noOfLines={1}>
+                <Text
+                  fontSize="sm"
+                  noOfLines={2}
+                  textAlign="center"
+                  maxW="80px"
+                >
                   {edge.node.title}
                 </Text>
               </VStack>

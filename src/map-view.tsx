@@ -357,40 +357,6 @@ const TokenRenderer = (props: {
   const updateRadiusRef = React.useRef<null | ((radius: number) => void)>(null);
   const [values, setValues] = useControls(
     () => ({
-      position: {
-        type: LevaInputs.VECTOR2D,
-        label: "Position",
-        value: [token.x, token.y],
-        step: 1,
-        onChange: (value: [number, number], _, { initial, fromPanel }) => {
-          if (initial) {
-            return;
-          }
-          setAnimatedProps({
-            position: [
-              ...sharedMapState.helper.imageCoordinatesToThreePoint(value),
-              0,
-            ],
-            immediate: isDraggingRef.current,
-          });
-
-          if (!fromPanel) {
-            return;
-          }
-          pendingChangesRef.current.x = value[0];
-          pendingChangesRef.current.y = value[1];
-          enqueueSave();
-        },
-        onEditStart: () => {
-          editingStateRef.position++;
-        },
-        onEditEnd: (value) => {
-          editingStateRef.position--;
-          pendingChangesRef.current.x = value[0];
-          pendingChangesRef.current.y = value[1];
-          enqueueSave();
-        },
-      },
       radius: {
         type: LevaInputs.NUMBER,
         label: "Size",
@@ -436,51 +402,8 @@ const TokenRenderer = (props: {
           "3x": () => updateRadiusRef.current?.(3),
         },
       }),
-      rotation: {
-        type: LevaInputs.NUMBER,
-        label: "Rotation",
-        min: 0,
-        max: 360,
-        step: 1,
-        value: token.rotation,
-        onChange: (rotation: number, _, { initial, fromPanel }) => {
-          if (initial) {
-            return;
-          }
-          setAnimatedProps({
-            rotation,
-          });
-
-          if (!fromPanel) {
-            return;
-          }
-
-          pendingChangesRef.current.rotation = rotation;
-          enqueueSave();
-        },
-        onEditStart: () => {
-          editingStateRef.rotation++;
-        },
-        onEditEnd: (value) => {
-          editingStateRef.rotation--;
-          pendingChangesRef.current.rotation = value;
-          enqueueSave();
-        },
-      },
-      isLocked: {
-        type: LevaInputs.BOOLEAN,
-        label: "Position locked",
-        value: token.isLocked,
-        onChange: (isLocked: boolean, _, { initial, fromPanel }) => {
-          if (initial || !fromPanel) {
-            return;
-          }
-          updateToken(props.id, {
-            isLocked,
-          });
-        },
-        transient: false,
-      },
+      // Position/Rotation/Locked fields intentionally omitted to simplify the UI.
+      // Position is still editable via drag, and rotation via context controls.
       text: {
         type: LevaInputs.STRING,
         label: "Title",
@@ -795,8 +718,8 @@ const TokenRenderer = (props: {
   const isDungeonMaster = React.useContext(IsDungeonMasterContext);
   const isMovable =
     (isDungeonMaster === true || values.isMovableByPlayers === true) &&
-    values.isLocked === false;
-  const isLocked = values.isLocked;
+    token.isLocked === false;
+  const isLocked = token.isLocked;
 
   const [isHover, setIsHover] = React.useState(false);
 
@@ -923,9 +846,12 @@ const TokenRenderer = (props: {
           sharedMapState.helper.coordinates.threeToCanvas([newX, newY])
         );
 
-        setValues({
-          position: [x, y],
-        });
+        // Only update Leva values that exist in our simplified store.
+        // We keep position editing via drag + updateToken; avoid setting
+        // the 'position' control (removed) to prevent type issues.
+        // Keep the UI in sync by updating token via updateToken on drag end.
+        // If you need to reflect a visual control change, consider adding
+        // a read-only display elsewhere.
 
         if (last) {
           updateToken(props.id, {

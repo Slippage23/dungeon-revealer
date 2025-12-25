@@ -363,9 +363,14 @@ export const mutationFields = [
                     "[GraphQL] Creating token_data for token:",
                     token.id
                   );
+                  // Provide sensible defaults for newly created tokens
                   await tokenDataDb.upsertTokenData(context.db, {
                     tokenId: token.id,
                     mapId: input.mapId,
+                    currentHp: 50,
+                    maxHp: 50,
+                    armorClass: 15,
+                    tempHp: 0,
                     conditions: [],
                   });
                 }

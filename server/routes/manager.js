@@ -754,6 +754,25 @@ module.exports = ({
     }
   );
 
+  // Delete a map by ID
+  router.delete("/manager/map/:id", roleMiddleware.dm, async (req, res) => {
+    const { id: rawId } = req.params;
+    console.log("[Manager] Delete map requested:", rawId);
+
+    try {
+      await maps.deleteMap(rawId);
+      console.log("[Manager] Deleted map:", rawId);
+
+      res.json({
+        error: null,
+        data: { deletedMapId: rawId },
+      });
+    } catch (err) {
+      console.error("[Manager] Delete map error:", err);
+      res.status(500).json({ error: { message: err.message }, data: null });
+    }
+  });
+
   // Delete a token image by ID
   router.delete("/manager/token/:id", roleMiddleware.dm, async (req, res) => {
     const { id: rawId } = req.params;

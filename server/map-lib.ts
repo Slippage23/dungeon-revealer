@@ -137,6 +137,12 @@ export const getPaginatedMaps = (params: {
     RT.chainW(() => RT.ask<MapsDependency>()),
     RT.chainW((deps) => () => async () => {
       let allMaps = deps.maps.getAll();
+
+      // Sort maps alphabetically by title
+      allMaps = [...allMaps].sort((a, b) =>
+        a.title.toLowerCase().localeCompare(b.title.toLowerCase())
+      );
+
       if (params.titleNeedle) {
         const titleNeedle = params.titleNeedle.toLowerCase();
         allMaps = allMaps.filter((map) =>

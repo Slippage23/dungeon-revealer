@@ -740,8 +740,9 @@ export const DmMap = (props: {
       () => ({
         offsetX: map.grid?.offsetX ?? 0,
         offsetY: map.grid?.offsetY ?? 0,
-        columnWidth: map.grid?.columnWidth ?? 50,
-        columnHeight: map.grid?.columnHeight ?? 50,
+        // Default grid column width/height set to 200 for sensible defaults
+        columnWidth: map.grid?.columnWidth ?? 200,
+        columnHeight: map.grid?.columnHeight ?? 200,
       }),
       [map.grid]
     );
