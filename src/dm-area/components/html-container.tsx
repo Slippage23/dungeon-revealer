@@ -328,7 +328,7 @@ export const HtmlContainer = React.memo(
             ]}
             components={components}
             options={{
-              simpleLineBreaks: true,
+              simpleLineBreaks: false,
               tables: true,
               tasklists: true,
               strikethrough: true,
