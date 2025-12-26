@@ -300,7 +300,7 @@ export const TemplateContext = React.createContext<TemplateMap>(new Map());
 
 /**
  * Preprocesses markdown to convert single newlines to <br/> tags.
- * Preserves code blocks (fenced and indented) and double newlines (paragraph breaks).
+ * Preserves code blocks, existing <br/> tags, and double newlines (paragraph breaks).
  */
 const preprocessLineBreaks = (markdown: string): string => {
   // Protect fenced code blocks by replacing them with placeholders
@@ -317,11 +317,13 @@ const preprocessLineBreaks = (markdown: string): string => {
     return `\x00INLINE_CODE_${inlineCode.length - 1}\x00`;
   });
 
-  // Convert single newlines to <br/> (but not double newlines which are paragraph breaks)
-  // First, normalize line endings
+  // Normalize line endings
   processed = processed.replace(/\r\n/g, "\n");
-  // Replace single newlines (not followed or preceded by another newline) with <br/>
-  processed = processed.replace(/(?<!\n)\n(?!\n)/g, "<br/>\n");
+
+  // Convert single newlines to <br/> BUT:
+  // - Not if line already ends with <br/> or <br> (with optional whitespace)
+  // - Not if it's a double newline (paragraph break)
+  processed = processed.replace(/(?<!<br\s*\/?>)\s*\n(?!\n)/gi, "<br/>\n");
 
   // Restore inline code
   inlineCode.forEach((code, index) => {
