@@ -298,6 +298,44 @@ const HtmlContainerStyled = styled.div`
 
 export const TemplateContext = React.createContext<TemplateMap>(new Map());
 
+/**
+ * Preprocesses markdown to convert single newlines to <br/> tags.
+ * Preserves code blocks (fenced and indented) and double newlines (paragraph breaks).
+ */
+const preprocessLineBreaks = (markdown: string): string => {
+  // Protect fenced code blocks by replacing them with placeholders
+  const codeBlocks: string[] = [];
+  let processed = markdown.replace(/```[\s\S]*?```/g, (match) => {
+    codeBlocks.push(match);
+    return `\x00CODE_BLOCK_${codeBlocks.length - 1}\x00`;
+  });
+
+  // Protect inline code by replacing with placeholders
+  const inlineCode: string[] = [];
+  processed = processed.replace(/`[^`\n]+`/g, (match) => {
+    inlineCode.push(match);
+    return `\x00INLINE_CODE_${inlineCode.length - 1}\x00`;
+  });
+
+  // Convert single newlines to <br/> (but not double newlines which are paragraph breaks)
+  // First, normalize line endings
+  processed = processed.replace(/\r\n/g, "\n");
+  // Replace single newlines (not followed or preceded by another newline) with <br/>
+  processed = processed.replace(/(?<!\n)\n(?!\n)/g, "<br/>\n");
+
+  // Restore inline code
+  inlineCode.forEach((code, index) => {
+    processed = processed.replace(`\x00INLINE_CODE_${index}\x00`, code);
+  });
+
+  // Restore code blocks
+  codeBlocks.forEach((block, index) => {
+    processed = processed.replace(`\x00CODE_BLOCK_${index}\x00`, block);
+  });
+
+  return processed;
+};
+
 export const HtmlContainer = React.memo(
   (props: { markdown: string; scopeHash?: string }) => {
     const templateMap: TemplateMap = useStaticRef(() => new Map());
@@ -318,7 +356,7 @@ export const HtmlContainer = React.memo(
         <HtmlContainerStyled className={scope} data-css-scope-hash={scope}>
           <MarkdownView
             sanitizeHtml={sanitizeHtml}
-            markdown={props.markdown}
+            markdown={preprocessLineBreaks(props.markdown)}
             extensions={[
               transformTemplateExtension(templateMap),
               scopedStyleBlockExtension(
