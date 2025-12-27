@@ -666,7 +666,6 @@ const TokenRenderer = (props: {
   React.useEffect(() => {
     const values: Record<string, any> = {
       text: token.label,
-      isLocked: token.isLocked,
       isMovableByPlayers: token.isMovableByPlayers,
       isVisibleForPlayers: token.isVisibleForPlayers,
       referenceId: token.referenceId,
@@ -682,14 +681,8 @@ const TokenRenderer = (props: {
     if (editingStateRef.radius === 0) {
       values["radius"] = token.radius;
     }
-    if (editingStateRef.position === 0) {
-      values["position"] = [token.x, token.y];
-    }
     if (editingStateRef.color === 0) {
       values["color"] = token.color;
-    }
-    if (editingStateRef.rotation === 0) {
-      values["rotation"] = token.rotation;
     }
 
     setValues(values);

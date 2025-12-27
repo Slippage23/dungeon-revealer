@@ -19,10 +19,10 @@ export const FlatContextProvider = (props: {
   return props.value
     .slice(0)
     .reverse()
-    .reduce(
-      (innerNode, [Component, props]) => (
-        <Component {...props}>{innerNode}</Component>
-      ),
-      <>{props.children}</>
-    );
+    .reduce((innerNode, context) => {
+      if (!context) return innerNode;
+      const [Component, componentProps] = context;
+      if (!Component) return innerNode;
+      return <Component {...componentProps}>{innerNode}</Component>;
+    }, <>{props.children}</>);
 };
